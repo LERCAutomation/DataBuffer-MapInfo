@@ -255,6 +255,16 @@ Type OutColumn
 	ColumnType As String
 End Type
 
+Type ColumnValues
+	ValKey As String
+	ValMin As String
+	ValMax As String
+	ValFirst As String
+	ValCommon As String
+	Easting As String
+	Northing As String
+End Type
+
 '-------------------------------------------------
 ' Declare the global variables
 '-------------------------------------------------
@@ -272,6 +282,7 @@ Global aInTablesOpen(99) As InTable
 Global aInTablesSelected(99) As InTable
 
 Global aOutColumns(99) As OutColumn
+Global aColumnValues(99) As ColumnValues
 
 Global iInTable As Integer
 Global iInTableCnt As Integer

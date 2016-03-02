@@ -79,6 +79,7 @@ Sub GetDefaultValues
 	Dim hXMLFilesNodeList As MIXMLNodeList
 	Dim hXMLFilesNodeParent As MIXmlNode
 	Dim hXMLFilesNode As MIXmlNode
+	Dim hXMLColumnsNode As MIXmlNode
 
 	OnError Goto GetVariablesError
 
@@ -111,7 +112,7 @@ Sub GetDefaultValues
 					' Load the default values from the child nodes
 					' under the DataBuffer node
 					'-------------------------------------------------
-					' File path for for storing the log file
+					' File path for storing the log file
 					Dim sLogFilePath As string
 					sLogFilePath = GetSingleNodeValue(hXMLNode, "LogFilePath")
 					sLogFileName = sLogFilePath & "\DataBuffer_" & sUserID & ".log"
@@ -182,9 +183,14 @@ Sub GetDefaultValues
 					hXMLFilesNodeParent = MIXmlSelectSingleNode(hXMLNode, "OutTable")
 
 					'-------------------------------------------------
+					' Get a handle on the symbology node for the table
+					'-------------------------------------------------
+					hXMLColumnsNode = MIXmlSelectSingleNode(hXMLFilesNodeParent, "Columns")
+
+					'-------------------------------------------------
 					' Get a handle on the node map of the above node
 					'-------------------------------------------------
-					hXMLFilesNodeList = MIXMLGetChildList(hXMLFilesNodeParent)
+					hXMLFilesNodeList = MIXMLGetChildList(hXMLColumnsNode)
 
 					'-------------------------------------------------
 					' Get a handle on the first attribute in the node list
@@ -233,6 +239,7 @@ CleanUp:
 	'-------------------------------------------------
 	' Destroy the handles
 	'-------------------------------------------------
+	If hXMLColumnsNode Then Call MIXmlNodeDestroy(hXMLColumnsNode) End If
 	If hXMLFilesNode Then Call MIXmlNodeDestroy(hXMLFilesNode) End If
 	If hXMLFilesNodeList Then Call MIXmlNodeListDestroy(hXMLFilesNodeList) End If
 	If hXMLFilesNodeParent Then Call MIXmlNodeDestroy(hXMLFilesNodeParent) End If
@@ -438,7 +445,7 @@ Sub CheckSelection
 		aInTablesSelected(iInTableTot).DissolveSize = aInTablesOpen(iInTableTot).DissolveSize
 
 		'-------------------------------------------------
-		' Read the next itput table selected in the list
+		' Read the next input table selected in the list
 		'-------------------------------------------------
 		iInTable = ReadControlValue(1)
 
@@ -527,19 +534,8 @@ Sub CheckSelection
 		Goto Response
 	End If
 
-
-
-
-
-
-	''Objects Combine Data CommonName=CommonName,Date=Date
-
-
-
-
-
 	'-------------------------------------------------
-	' Process the selections one by one
+	' Process the selected tables one by one
 	'-------------------------------------------------
 	iInTableCnt = 1
 	ProgressBar "Processing " + iInTableTot + " input tables ..."
@@ -623,6 +619,33 @@ Sub CreateBufferTable (sOutputPath As String, sOutputName As String)
 	sCmd = "Create Map For " + sOutputName + " CoordSys " + sCoordSys
 	Run Command (sCmd)
 
+'	'-------------------------------------------------
+'	' Find the layer number of the search table by
+'	' looking through all the windows until it is
+'	' found
+'	'-------------------------------------------------
+'	Dim iNumWindows As Integer
+'	iNumWindows = UBound(aWindowId)
+'	Dim iWindowNum As Integer
+'	For iWindowNum = 1 to iNumWindows
+'		Dim iNumTables As Integer
+'		Dim iNumSearchTable as Integer
+'		iNumTables = MapperInfo(aWindowId(iWindowNum), MAPPER_INFO_LAYERS)
+'		For iNumSearchTable = 1 to iNumTables
+'			If LayerInfo(aWindowId(iWindowNum),iNumSearchTable, LAYER_INFO_NAME) = sSearchTable Then
+'				Goto EditLayer
+'			End If
+'		Next
+'	Next
+'
+'EditLayer:
+'	'-------------------------------------------------
+'	' Make the layer editable
+'	'-------------------------------------------------
+'	If LayerInfo(aWindowId(iWindowNum),iNumSearchTable,LAYER_INFO_EDITABLE) = False Then
+'		Set Map Window aWindowId(iWindowNum) Layer iNumSearchTable Editable On
+'	End If
+
 	Call MyPrint("Created output buffer table.")
 
 	Exit Sub
@@ -680,9 +703,9 @@ Sub BufferRecords
 	sDissolveSize As String)
 '*************************************************
 '* Routine to select the records from the
-'* MapInfo table name passed in the call that
-'* intersect with the boundaries where the
-'* partner equals the value passed in the call.
+'* MapInfo table name passed in the call, buffer
+'* and/or dissolve them and copy them to the
+'* output table.
 '*************************************************
 
 	OnError Goto ErrorTrap
@@ -690,16 +713,25 @@ Sub BufferRecords
 	'-------------------------------------------------
 	' Setup the temporary table names
 	'-------------------------------------------------
-	Dim sTempName As String
-	sTempName = "BufferTemp"
+	Dim sTempInput, sTempOutput As String
+	sTempInput = "TempInput"
+	sTempOutput = "TempOutput"
+
+	Dim sTempSelect As String
+	sTempSelect = "TempSelect"
 
 	'-------------------------------------------------
-	' Check if the temporary table is already/still open
-	' and close it if it is
+	' Check if the temporary tables are already/still
+	' open and close them if it is
 	'-------------------------------------------------
-	If TableIsOpen(sTempName) Then
-		Call MyPrint("Closing temporary table ...")
-		Close Table sTempName
+	If TableIsOpen(sTempInput) Then
+		Call MyPrint("Closing temporary table TempInput ...")
+		Close Table sTempInput
+	End If
+
+	If TableIsOpen(sTempSelect) Then
+		Call MyPrint("Closing temporary table TempSelect ...")
+		Close Table sTempSelect
 	End If
 
 	'-------------------------------------------------
@@ -707,16 +739,38 @@ Sub BufferRecords
 	' table
 	'-------------------------------------------------
 	Dim sCmd As String
-	sCmd = "Select " + sColumns + ", Obj From " + sTableName + " Into " + sTempName + " NoSelect"
+	Call MyPrint("Selecting feature from " + sTableName + " ...")
+	sCmd = "Select " + sColumns + ", Obj, CentroidX(Obj) " + Chr$(34) + "xCol" + Chr$(34) + ", CentroidY(Obj) " + Chr$(34) + "yCol" + Chr$(34) + " From " + sTableName + " Into " + sTempInput + " NoSelect"
 	Run Command (sCmd)
 
 	'-------------------------------------------------
 	' Count the number of rows selected
 	'-------------------------------------------------
 	Dim iRows As Integer
-	iRows = TableInfo(BufferTemp, TAB_INFO_NROWS)
+	iRows = TableInfo(sTempInput, TAB_INFO_NROWS)
 
 	Call MyPrint("Buffering " + FormatNumber$(iRows) + " rows ...")
+
+	'-------------------------------------------------
+	' Reset the column values
+	'-------------------------------------------------
+	Dim iColumn As Integer
+	For iColumn = 1 to UBound(aOutColumns)
+		aColumnValues(iColumn).ValKey = ""
+		aColumnValues(iColumn).ValMin = ""
+		aColumnValues(iColumn).ValMax = ""
+		aColumnValues(iColumn).ValFirst = ""
+		aColumnValues(iColumn).ValCommon = ""
+	Next
+
+	Dim sColumn As Alias, sColumnVal As String
+	Dim bSame As Logical
+	bSame = False
+
+	'-------------------------------------------------
+	' Turn on FastEdit to speed up the updates
+	'-------------------------------------------------
+	Set Table sOutputName FastEdit On
 
 	'-------------------------------------------------
 	' If any rows were selected then set the object
@@ -726,79 +780,202 @@ Sub BufferRecords
 		'-------------------------------------------------
 		' Set the coordinate system to that of the table
 		'-------------------------------------------------
-		Set Coordsys table BufferTemp
+		Set Coordsys table TempInput
 
 		'-------------------------------------------------
 		' Fetch the first of the selected rows
 		'-------------------------------------------------
-		Fetch First from BufferTemp
+		Fetch First from TempInput
 
 		'-------------------------------------------------
-		' Loop through all the selected rows setting the
-		' spatial object
+		' Loop through all the selected rows buffer the
+		' spatial objects
 		'-------------------------------------------------
 		Dim iRow as Integer
 		iRow = 1
-		Do while iRow <= iRows
-
-			Dim X, Y, Z as Integer
-			Z = BufferTemp.col3
-			X = int(BufferTemp.col1 / Z) * Z
-			Y = int(BufferTemp.col2 / Z) * Z
+		Do while iRow <= 10
 
 			'-------------------------------------------------
-			' Create a dummy object to plot
+			' Loop through every column in the output table
+			' to check if the key columns have changed
 			'-------------------------------------------------
-			Dim oUpdateObj as Object
+			For iColumn = 1 to UBound(aOutColumns)
+				
+				'-------------------------------------------------
+				' Set an alias for the column
+				'-------------------------------------------------
+				sColumn = "TempInput.Col" + iColumn
+				
+				'-------------------------------------------------
+				' Check if the key columns have changed from the
+				' last record
+				'-------------------------------------------------
+				Do Case aOutColumns(iColumn).ColumnType
+					Case "Key"
+						Call MyPrint("Column " + iColumn + " Key Value = " + sColumn)
+						If aColumnValues(iColumn).ValKey <> sColumn Then
+							bSame = False
+						End If
+					Case Else
+						Call MyPrint("Column " + iColumn + " Else Value = " + sColumn)
+				End Case
+			Next		
+	
+			'-------------------------------------------------
+			' If the key columns have not changed
+			'-------------------------------------------------
+			If bSame = True Then
 
-			If Z <= iMaxPointSize Then
+				Call MyPrint("Row " + iRow + " same")
 
 				'-------------------------------------------------
-				' Create a point in the object
+				' Loop through every column in the output table
+				' to update the values
 				'-------------------------------------------------
-				Create Point Into Variable oUpdateObj ( X, Y )
+				For iColumn = 1 to UBound(aOutColumns)
+					
+					'-------------------------------------------------
+					' Set an alias for the column
+					'-------------------------------------------------
+					sColumn = "TempInput.Col" + iColumn
+					sColumnVal = sColumn
+					
+					'-------------------------------------------------
+					' Check if the key columns have changed from the
+					' last record
+					'-------------------------------------------------
+					Do Case aOutColumns(iColumn).ColumnType
+						Case "Range"
+							If sColumnVal < aColumnValues(iColumn).ValMin Then
+								aColumnValues(iColumn).ValMin = sColumnVal
+							End If
+							If sColumnVal > aColumnValues(iColumn).ValMax Then
+								aColumnValues(iColumn).ValMax = sColumnVal
+							End If
+						Case Else
+					End Case
+				Next		
 
+			'-------------------------------------------------
+			' If the key columns have changed
+			'-------------------------------------------------
 			Else
 
-				'-------------------------------------------------
-				' Create a region in the object
-				'-------------------------------------------------
-				Dim pX(5), pY(5) As Integer
-				Dim i As Integer
-				pX(1) = X
-				pY(1) = Y
-				pX(2) = pX(1) + Z
-				pY(2) = pY(1)
-				pX(3) = pX(1) + Z
-				pY(3) = pY(1) + Z
-				pX(4) = pX(1)
-				pY(4) = pY(1) + Z
-				pX(5) = pX(1)
-				pY(5) = pY(1)
+				If iRow > 1 Then
+
+					sCmd = "Select * From " + sOutputName + " Into " + sTempOutput + " Where Col1 = " + Chr$(34) + "Temp"+ Chr$(34) + " NoSelect"
+					Run Command (sCmd)
+
+					'-------------------------------------------------
+					' Update the data values
+					'-------------------------------------------------
+					sCmd = "Update " + sTempOutput + " Set"
+	
+					'-------------------------------------------------
+					' Loop through every column in the output table
+					' to set the values
+					'-------------------------------------------------
+					For iColumn = 1 to UBound(aOutColumns)
+	
+						'-------------------------------------------------
+						' Set an alias for the column
+						'-------------------------------------------------
+						sColumn = "TempInput.Col" + iColumn
+	
+						Do Case aOutColumns(iColumn).ColumnType
+							Case "Key"
+								sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValKey + Chr$(34)
+							Case "First"
+								sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValFirst + Chr$(34)
+							Case "Common"
+								sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValCommon + Chr$(34)
+							Case "Range"
+								If aColumnValues(iColumn).ValMin = aColumnValues(iColumn).ValMax Then
+									sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMin + Chr$(34)
+								Else
+									sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMin + " - " + aColumnValues(iColumn).ValMax + Chr$(34)
+								End If
+							Case Else
+								sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValKey + Chr$(34)
+								Call MyPrint("Column " + iColumn + " = Else")
+						End Case
+						
+						If iColumn <> UBound(aOutColumns) Then
+							sCmd = sCmd + ","
+						End If
+						
+					Next
+						
+					Run Command sCmd
+				
+				End If
 
 				'-------------------------------------------------
-				' Create an empty region object
+				' Loop through every column in the output table
+				' to set the values
 				'-------------------------------------------------
-				Create Region Into Variable oUpdateObj 0
+				For iColumn = 1 to UBound(aOutColumns)
+					
+					'-------------------------------------------------
+					' Set an alias for the column
+					'-------------------------------------------------
+					sColumn = "TempInput.Col" + iColumn
 
-				'-------------------------------------------------
-				' Now add nodes to populate the object
-				'-------------------------------------------------
-				For i = 1 to 5
-					Alter Object oUpdateObj Node Add ( pX(i), pY(i) )
+					'-------------------------------------------------
+					' Set the column values
+					'-------------------------------------------------
+					aColumnValues(iColumn).ValKey = sColumn
+					aColumnValues(iColumn).ValMin = sColumn
+					aColumnValues(iColumn).ValMax = sColumn
+					aColumnValues(iColumn).ValFirst = sColumn
+					aColumnValues(iColumn).ValCommon = sColumn
+					If sDissolveSize <> "" And sDissolveSize > 0 Then
+						aColumnValues(iColumn).Easting = (TempInput.xCol / sDissolveSize)
+						aColumnValues(iColumn).Northing = (TempInput.yCol / sDissolveSize)
+					Else
+						aColumnValues(iColumn).Easting = TempInput.xCol
+						aColumnValues(iColumn).Northing = TempInput.yCol
+					End If
+					
 				Next
-
+				
+				bSame = True
+				
 			End If
 
 			'-------------------------------------------------
-			' Update the object in the table
+			' Create a temporary object
 			'-------------------------------------------------
-			Update BufferTemp Set Obj = oUpdateObj Where RowID = iRow
+			'Dim oTempObj As Object
+			'oTempObj = Buffer(TempInput.Obj, 100, sBufferSize, "m")
+			'oTempObj = TempInput.Obj
+
+'			'-------------------------------------------------
+'			' Insert the object into a temporary table
+'			'-------------------------------------------------
+'			Insert Into TempSelect (Object) Values (TempInput.Obj)
+
+			'-------------------------------------------------
+			' Select the required row into a temporary table
+			'-------------------------------------------------
+			sCmd = "Select * from " + sTempInput + " Where RowID = " + iRow + " Into " + sTempSelect + " NoSelect"
+			Run Command (sCmd)
+'		
+'			Dim X, Y, Z as Integer
+'			Z = sTempSelect.col3
+'			X = int(sTempSelect.col1 / Z) * Z
+'			Y = int(sTempSelect.col2 / Z) * Z
+
+			'-------------------------------------------------
+			' Create a buffered object
+			'-------------------------------------------------
+			sCmd = "Create Object As Buffer From " + sTempSelect + " Width " + sBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + " Data Col1=" + Chr$(34) + "Temp" + Chr$(34)
+			Run Command (sCmd)
 
 			'-------------------------------------------------
 			' Fetch the next of the selected rows
 			'-------------------------------------------------
-			Fetch next from BufferTemp
+			Fetch next from sTempInput
 			iRow = iRow + 1
 
 		Loop
@@ -808,8 +985,13 @@ Sub BufferRecords
 		'-------------------------------------------------
 		Set ProgressBars Off
 
-		sCmd = "Commit Table " + sTempName
+		sCmd = "Commit Table " + sOutputName
 		Run Command (sCmd)
+
+		'-------------------------------------------------
+		' Turn off FastEdit after updates
+		'-------------------------------------------------
+		Set Table sOutputName FastEdit Off
 
 		Set ProgressBars On
 
@@ -817,11 +999,14 @@ Sub BufferRecords
 
 CleanUp:
 	'-------------------------------------------------
-	' Close the temporary NewObjtable if it is
-	' already/still open in the current MapInfo session
+	' Close the temporary tables
 	'-------------------------------------------------
-	If TableIsOpen(sTempName) Then
-		Close Table sTempName
+	If TableIsOpen(sTempInput) Then
+		Close Table sTempInput
+	End If
+
+	If TableIsOpen(sTempSelect) Then
+		Close Table sTempSelect
 	End If
 
 	'-------------------------------------------------
