@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+WARNING: This file should be changed carefully and a backup should be
+taken before any changes so that they can be backed out.  Changed lines
+can also be commented out as below.
+-->
+
+<!--
+This config file contains all the variables used by the DataExtractor
+MapBasic tool.
+
+The 'configuration' node is the 'root' node and signifies the start of the
+contents of the configuration file.
+
+The 'DataExtractor' node contains all of the entries relating to the
+MapBasic tool variables.
+
+Each entry relates to a file, folder, table name, column name or SQL statement
+used by the MapBasic tool to select and export data for the GiGL partners.
+-->
+
+<configuration>
+<DataBuffer>
+
+  <!-- The existing file location where log files will be saved with output messages -->
+  <LogFilePath>
+	<value>D:\Andy\TVERC\Data Buffer\Logs</value>
+  </LogFilePath>
+
+  <!-- The existing file location where the new GIS layer will be created -->
+  <DefaultPath>
+	<value>D:\Andy\TVERC\Data Buffer</value>
+  </DefaultPath>
+
+  <!-- The name for the new GIS layer to be created -->
+  <OutTableName>
+	<Value>TVERC Buffered Species</Value>
+  </OutTableName>
+
+  <OutColumnDefs>
+	<Value>CommonName Char(100), TaxonName Char(100), RecYear Char(11), GridRef Char(12), Location Char(100), StatusUK Char(100), Version Char(100), SurveyOrigin Char(100), Provider Char(100), SurveyName Char(100)</Value>
+  </OutColumnDefs>
+
+  <!-- The coordinate system for mapping tables -->
+  <CoordinateSystem>
+	<value>Earth Projection 8, 79, "m", -2, 49, 0.9996012717, 400000, -100000</value>
+  </CoordinateSystem>
+  
+  <!-- The names and local names of the tables to be processed -->
+  <InTables>
+	<Badgers>
+		<TableName>
+			<Value>Badgers</Value>
+		</TableName>
+		<Columns>
+			<Value>CommonName, TaxonName, RecYear, GridRef, Location, StatusUK, Version, SurveyOrigin, Provider, SurveyName</Value>
+		</Columns>
+		<BufferSize>
+			<Value>100</Value>
+		</BufferSize>
+		<DissolveSize>
+			<Value>0</Value>
+		</DissolveSize>
+	</Badgers>
+	<Dormice>
+		<TableName>
+			<Value>Dormice</Value>
+		</TableName>
+		<Columns>
+			<Value>CommonName, TaxonName, RecYear, GridRef, Location, StatusUK, Version, SurveyOrigin, Provider, SurveyName</Value>
+		</Columns>
+		<BufferSize>
+			<Value>100</Value>
+		</BufferSize>
+		<DissolveSize>
+			<Value>100</Value>
+		</DissolveSize>
+	</Dormice>
+  </InTables>
+
+  <!-- The details of the new GIS layer to be created -->
+  <OutTable>
+	<!-- The columns in the new GIS layer and how they will be created -->
+	<Columns>
+		<Col1>
+			<ColumnName>
+				<value>CommonName</value>
+			</ColumnName>
+			<ColumnType>
+				<value>Group</value>
+			</ColumnType>
+		</Col1>
+		<Col2>
+			<ColumnName>
+				<value>SciName</value>
+			</ColumnName>
+			<ColumnType>
+				<value>Group</value>
+			</ColumnType>
+		</Col2>
+		<Col3>
+			<ColumnName>
+				<value>Date</value>
+			</ColumnName>
+			<ColumnType>
+				<value>Range</value>
+			</ColumnType>
+		</Col3>
+		<Col4>
+			<ColumnName>
+				<value>GridRef</value>
+			</ColumnName>
+			<ColumnType>
+				<value>Group</value>
+			</ColumnType>
+		</Col4>
+		<Col5>
+			<ColumnName>
+				<value>Location</value>
+			</ColumnName>
+			<ColumnType>
+				<value>Common</value>
+			</ColumnType>
+		</Col5>
+		<Col6>
+			<ColumnName>
+				<value>Design</value>
+			</ColumnName>
+			<ColumnType>
+				<value>First</value>
+			</ColumnType>
+		</Col6>
+		<Col7>
+			<ColumnName>
+				<value>Version</value>
+			</ColumnName>
+			<ColumnType>
+				<value>First</value>
+			</ColumnType>
+		</Col7>
+		<Col8>
+			<ColumnName>
+				<value>Origin</value>
+			</ColumnName>
+			<ColumnType>
+				<value>Group</value>
+			</ColumnType>
+		</Col8>
+		<Col9>
+			<ColumnName>
+				<value>Provider</value>
+			</ColumnName>
+			<ColumnType>
+				<value>First</value>
+			</ColumnType>
+		</Col9>
+		<Col10>
+			<ColumnName>
+				<value>SurveyName</value>
+			</ColumnName>
+			<ColumnType>
+				<value>Group</value>
+			</ColumnType>
+		</Col10>
+	</Columns>
+
+	<!-- The symbology to apply to the new GIS layer -->
+	<Symbology>
+		<Symbol>
+			<Clause>
+				<Value></Value>
+			</Clause>
+			<Object>
+				<Value>Region</Value>
+			</Object>
+			<Pen>
+				<Value>2,2,10526880</Value>
+			</Pen>
+			<Brush>
+				<Value>5,10526880</Value>
+			</Brush>
+		</Symbol>
+	</Symbology>
+  </OutTable>
+
+</DataBuffer>
+</configuration>

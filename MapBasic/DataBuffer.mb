@@ -1,0 +1,1169 @@
+'* DataBuffer is a MapBasic tool to buffer and, optionally, consolidate
+'* records from one or more MapInfo GIS layers and merge the results
+'* into a single output MapInfo GIS layer.
+'*
+'* Copyright © 2016 TVERC
+'* 
+'* This file is part of the MapInfo tool 'DataBuffer'.
+'* 
+'* DataBuffer is free software: you can redistribute it and/or modify
+'* it under the terms of the GNU General Public License as published by
+'* the Free Software Foundation, either version 3 of the License, or
+'* (at your option) any later version.
+'* 
+'* DataBuffer is distributed in the hope that it will be useful,
+'* but WITHOUT ANY WARRANTY; without even the implied warranty of
+'* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+'* GNU General Public License for more details.
+'* 
+'* You should have received a copy of the GNU General Public License
+'* along with DataBuffer.  If not, see <http://www.gnu.org/licenses/>.
+'*
+'***************************************************************
+'* DataBuffer v1.01
+'*
+'* Buffers and (optionally) consolidates records from one or more
+'* MapInfo GIS layers and merges the results into a new output
+'* MapInfo GIS layer.
+'*
+'*
+'* Created:			Andy Foy - February 2016
+'* Last revised:	Andy Foy - February 2016
+'* 
+'* *****************  Version 1.01  *****************
+'* Author: Andy Foy		Date: 24/02/2016
+'* A. Initial version of tool.
+'* 
+'***************************************************************
+Include "DataBuffer.def"
+
+Sub Main
+'***************************************************************
+'* Main sub-routine
+'***************************************************************
+
+	'-------------------------------------------------
+	' Set the version number
+	'-------------------------------------------------
+	sVersion = "1.01"
+
+	'-------------------------------------------------
+	' Create a new menu
+	'-------------------------------------------------
+	Create Menu "&Data Buffer" As
+	   "&Run Data Buffer ..." Calling OpenDialog,
+	   "(-",
+	   "&About Data Buffer ..." Calling AboutBox,
+	   "E&xit Data Buffer" Calling egsit
+
+	'-------------------------------------------------
+	' Add the new menu item to the Tools menu
+	'-------------------------------------------------
+	Alter Menu "Tools" Add
+		"Data Buffer" As "Data Buffer"
+
+	Exit Sub
+
+End Sub
+
+Sub GetDefaultValues
+'***************************************************************
+'* Retrieve all the default values from the config file
+'* which is a XML document
+'***************************************************************
+
+	Dim bParseError As SmallInt
+	Dim hXMLDoc As MIXmlDocument
+	Dim hXMLRoot As MIXmlNode
+	Dim hXMLNode As MIXmlNode
+	Dim hXMLFilesNodeList As MIXMLNodeList
+	Dim hXMLFilesNodeParent As MIXmlNode
+	Dim hXMLFilesNode As MIXmlNode
+
+	OnError Goto GetVariablesError
+
+	'-------------------------------------------------
+	' Create a document handle
+	'-------------------------------------------------
+	hXMLDoc = MIXmlDocumentCreate()
+	If hXMLDoc Then
+
+		'-------------------------------------------------
+		' Load the document into the document handle
+		'-------------------------------------------------
+		Dim iXMLLoad As SmallInt
+		iXMLLoad = MIXmlDocumentLoad(hXMLDoc, ApplicationDirectory$() + "DataBuffer.xml", bParseError, FALSE, FALSE)
+		if iXMLLoad > 0 Then
+
+			'-------------------------------------------------
+			' Get a handle on the XML root node of the document
+			'-------------------------------------------------
+			hXMLRoot = MIXmlDocumentGetRootNode(hXMLDoc)
+			If hXMLRoot Then
+
+				'-------------------------------------------------
+				' Get a handle on the DataBuffer node
+				'-------------------------------------------------
+				hXMLNode = MIXmlSelectSingleNode(hXMLRoot, "DataBuffer")
+				If hXMLNode Then
+	
+					'-------------------------------------------------
+					' Load the default values from the child nodes
+					' under the DataBuffer node
+					'-------------------------------------------------
+					' File path for for storing the log file
+					Dim sLogFilePath As string
+					sLogFilePath = GetSingleNodeValue(hXMLNode, "LogFilePath")
+					sLogFileName = sLogFilePath & "\DataBuffer_" & sUserID & ".log"
+
+					' Default file path to store extracts in sub-folders
+					sDefaultPath = GetSingleNodeValue(hXMLNode, "DefaultPath")
+
+					' Name of the table to create
+					sOutTableName = GetSingleNodeValue(hXMLNode, "OutTableName")
+
+					' Definitions of the columns in the new table
+					sOutColumnDefs = GetSingleNodeValue(hXMLNode, "OutColumnDefs")
+
+					' Coordinate system to be used for mapping
+					sCoordSys = GetSingleNodeValue(hXMLNode, "CoordinateSystem")
+
+					'-------------------------------------------------
+					' Get a handle on the input tables node
+					'-------------------------------------------------
+					hXMLFilesNodeParent = MIXmlSelectSingleNode(hXMLNode, "InTables")
+
+					'-------------------------------------------------
+					' Get a handle on the node map of the above node
+					'-------------------------------------------------
+					hXMLFilesNodeList = MIXMLGetChildList(hXMLFilesNodeParent)
+
+					'-------------------------------------------------
+					' Get a handle on the first attribute in the node list
+					'-------------------------------------------------
+					hXMLFilesNode = MIXMLGetNextNode(hXMLFilesNodeList)
+
+					'-------------------------------------------------
+					' Loop through all the attributes in the node list
+					' storing the values in an array
+					'-------------------------------------------------
+					Dim i As Integer
+					i = 0
+					Do while hXMLFilesNode
+						
+						i = i + 1
+
+						' Name of the table node
+						aInTables(i).Node = GetNodeName(hXMLFilesNode)
+
+						' Name of the MapInfo table to be input
+						aInTables(i).TableName = GetSingleNodeValue(hXMLFilesNode, "TableName")
+
+						' The columns to read from the input table
+						aInTables(i).Columns = GetSingleNodeValue(hXMLFilesNode, "Columns")
+
+						' The size of the buffer to apply to the records
+						aInTables(i).BufferSize = GetSingleNodeValue(hXMLFilesNode, "BufferSize")
+
+						' The proximity of records to be dissolved together
+						aInTables(i).DissolveSize = GetSingleNodeValue(hXMLFilesNode, "DissolveSize")
+
+						'-------------------------------------------------
+						' Get a handle on the next attribute in the node list
+						'-------------------------------------------------
+						hXMLFilesNode = MIXMLGetNextNode(hXMLFilesNodeList)
+					Loop
+
+					Redim aInTables(i)
+
+					'-------------------------------------------------
+					' Get a handle on the output table node
+					'-------------------------------------------------
+					hXMLFilesNodeParent = MIXmlSelectSingleNode(hXMLNode, "OutTable")
+
+					'-------------------------------------------------
+					' Get a handle on the node map of the above node
+					'-------------------------------------------------
+					hXMLFilesNodeList = MIXMLGetChildList(hXMLFilesNodeParent)
+
+					'-------------------------------------------------
+					' Get a handle on the first attribute in the node list
+					'-------------------------------------------------
+					hXMLFilesNode = MIXMLGetNextNode(hXMLFilesNodeList)
+
+					'-------------------------------------------------
+					' Loop through all the attributes in the node list
+					' storing the values in an array
+					'-------------------------------------------------
+					i = 0
+					Do while hXMLFilesNode
+						
+						i = i + 1
+
+						' Name of the column node
+						aOutColumns(i).Node = GetNodeName(hXMLFilesNode)
+
+						' Name of the column to be output to the new buffered layer
+						aOutColumns(i).ColumnName = GetSingleNodeValue(hXMLFilesNode, "ColumnName")
+
+						' Type of column to be output to the new buffered layer
+						aOutColumns(i).ColumnType = GetSingleNodeValue(hXMLFilesNode, "ColumnType")
+
+						'-------------------------------------------------
+						' Get a handle on the next attribute in the node list
+						'-------------------------------------------------
+						hXMLFilesNode = MIXMLGetNextNode(hXMLFilesNodeList)
+					Loop
+
+					Redim aOutColumns(i)
+
+				End If
+
+			End If
+
+		Else
+
+			Note "Error : " + MIGetErrorMessage()
+
+		End If
+
+	End If
+
+CleanUp:
+	'-------------------------------------------------
+	' Destroy the handles
+	'-------------------------------------------------
+	If hXMLFilesNode Then Call MIXmlNodeDestroy(hXMLFilesNode) End If
+	If hXMLFilesNodeList Then Call MIXmlNodeListDestroy(hXMLFilesNodeList) End If
+	If hXMLFilesNodeParent Then Call MIXmlNodeDestroy(hXMLFilesNodeParent) End If
+	If hXMLNode Then Call MIXmlNodeDestroy(hXMLNode) End If
+	If hXMLRoot Then Call MIXmlNodeDestroy(hXMLRoot) End If
+	If hXMLDoc Then Call MIXmlDocumentDestroy(hXMLDoc) End If
+
+	Exit Sub
+
+GetVariablesError:
+	Note str$(Err()) + ": " + Error$()
+	Exit Sub
+
+End Sub
+
+Sub OpenDialog
+'***************************************************************
+'* Create the user dialog window
+'***************************************************************
+
+	'-------------------------------------------------
+	' Trap errors
+	'-------------------------------------------------
+    OnError Goto ErrorTrap
+
+	'-------------------------------------------------
+	' Get the current user ID
+	'-------------------------------------------------
+	sUserID = GetUserID()
+	sUserID = StringReplace(sUserID, " ", "_")
+	sUserID = StringReplace(sUserID, ".", "_")
+
+	'-------------------------------------------------
+	' Retrieve the default values from the config file
+	'-------------------------------------------------
+	Call GetDefaultValues
+
+	'-------------------------------------------------
+	' Build a new dialog window
+	'-------------------------------------------------
+	Dialog
+		Title "Data Buffer " + sVersion
+		Width 300
+		Height 260
+		Position 50, 70
+		Calling DialogSetup
+
+	'-------------------------------------------------
+	' Add a input table listbox
+	'-------------------------------------------------
+	Control StaticText Title "Input Tables:"
+		Position 10, 10
+	Control MultiListBox
+		ID 1
+		Title ""
+		Position 10, 20
+		Height 170
+		Width 170
+
+	'-------------------------------------------------
+	' Add a checkbox for clearing the log file
+	'-------------------------------------------------
+	Control CheckBox
+		ID 6
+		Title "Clear log file?"
+		Position 10,230
+		Value TRUE
+		'Into bClearLog
+
+	'-------------------------------------------------
+	' Add Ok and cancel buttons
+	'-------------------------------------------------
+	Control CancelButton
+		Position 205,240
+		Width 40
+	Control Button
+		Title "Ok"
+		Position 250,240
+		Width 40
+		Calling CheckSelection
+
+Done:
+	Exit Sub
+	
+ErrorTrap:
+	Note str$(Err()) + ": " + Error$()
+	Call MyPrint(str$(Err()) + ": " + Error$())
+	Resume Done
+
+End Sub
+
+Sub DialogSetup
+'***************************************************************
+' Setup the dialog window listboxes
+'***************************************************************
+
+	'-------------------------------------------------
+	' Clear the Message window and close it
+	'-------------------------------------------------
+	Print(chr$(12))
+	Close Window Message
+
+	'-------------------------------------------------
+	' Store the names of any tables not open
+	'-------------------------------------------------
+	Dim sClosedTables As String, iClosedCount as Integer
+	sClosedTables = ""
+	iClosedCount = 0
+	
+	'-------------------------------------------------
+	' Loop through all the input tables listed in the
+	' config file and add them to the input Table list
+	' if they are open in MapInfo
+	'-------------------------------------------------
+	Dim i, j As Integer
+	Dim aOpenTables(99) As String
+	j = 0
+	For i = 1 to UBound(aInTables)
+
+		'-------------------------------------------------
+		' Concatenate all the Map tables into an array
+		'-------------------------------------------------
+		If TableIsOpen(aInTables(i).TableName) Then
+			j = j + 1
+			aOpenTables(j) = aInTables(i).TableName
+			aInTablesOpen(j).Node = aInTables(i).Node
+			aInTablesOpen(j).TableName = aInTables(i).TableName
+			aInTablesOpen(j).Columns = aInTables(i).Columns
+			aInTablesOpen(j).BufferSize = aInTables(i).BufferSize
+			aInTablesOpen(j).DissolveSize = aInTables(i).DissolveSize
+		Else
+			'-------------------------------------------------
+			' Store the name of the closed table
+			'-------------------------------------------------
+			sClosedTables = sClosedTables + Chr$(13) + aInTables(i).TableName
+			iClosedCount = iClosedCount + 1
+		End If
+
+	Next
+
+	Redim aInTablesOpen(j)
+	Redim aOpenTables(j)
+
+	'-------------------------------------------------
+	' Update the input table list to show the list
+	' of open tables
+	'-------------------------------------------------
+	Alter Control 1 Title FROM Variable aOpenTables
+
+	'-------------------------------------------------
+	' Warn the user of the closed tables
+	'-------------------------------------------------
+	If iClosedCount > 0 Then
+		If iClosedCount = 1 Then
+			Note "Warning: the following table is not open ..." + Chr$(13) + sClosedTables
+		Else
+			Note "Warning: " + iClosedCount + " tables are not open, including ..." + Chr$(13)+ sClosedTables
+		End If
+	End If
+
+End Sub
+
+Sub CheckSelection
+'***************************************************************
+'* Check the user's selections and process according
+'***************************************************************
+
+	'-------------------------------------------------
+	' Store the dialog variables
+	'-------------------------------------------------
+	bClearLog = ReadControlValue(6)
+
+	'-------------------------------------------------
+	' Check if the user has selected at least one input
+	' table
+	'-------------------------------------------------
+	iInTable = ReadControlValue(1)
+	if iInTable = 0 then
+		Note "No input tables have been selected!"
+		Exit Sub
+	End If
+
+	'-------------------------------------------------
+	' Reset the global variables
+	'-------------------------------------------------
+	iInTableTot = 0
+	iInTableCnt = 0
+
+	'-------------------------------------------------
+	' Count the number of input tables to process
+	'-------------------------------------------------
+	Do While iInTable > 0
+	
+		'-------------------------------------------------
+		' Increment the counters
+		'-------------------------------------------------
+		iInTableTot = iInTableTot + 1
+
+		aInTablesSelected(iInTableTot).Node = aInTablesOpen(iInTableTot).Node
+		aInTablesSelected(iInTableTot).TableName = aInTablesOpen(iInTableTot).TableName
+		aInTablesSelected(iInTableTot).Columns = aInTablesOpen(iInTableTot).Columns
+		aInTablesSelected(iInTableTot).BufferSize = aInTablesOpen(iInTableTot).BufferSize
+		aInTablesSelected(iInTableTot).DissolveSize = aInTablesOpen(iInTableTot).DissolveSize
+
+		'-------------------------------------------------
+		' Read the next itput table selected in the list
+		'-------------------------------------------------
+		iInTable = ReadControlValue(1)
+
+	Loop
+
+	'-------------------------------------------------
+	' Prompt the user for the output file destination
+	'-------------------------------------------------
+	Dim sOutputFile As String
+	sOutputFile = FileSaveAsDlg(sDefaultPath, "", "TAB", "Select where to save the output file")
+
+	if sOutputFile = "" then
+		Call MyPrint("No output file selected - process cancelled")
+		Note "No output file selected - process cancelled"
+		Exit Sub
+	End If
+
+	'-------------------------------------------------
+	' Get the path and name of the selected output file
+	'-------------------------------------------------
+	sOutputPath = PathToDirectory$(sOutputFile)
+	sOutputName = PathToFileName$(sOutputFile)
+
+	'-------------------------------------------------
+	' Check the selected directory already exists
+	'-------------------------------------------------
+	Dim iSuccess, iSecurity As Integer
+	iSecurity = 0
+	iSuccess = SetCurrentDirectory(sOutputPath)
+	if iSuccess = 0 Then
+		Call MyPrint("Output folder does not exist - process cancelled")
+		Note "Output folder does not exist - process cancelled"
+		Exit Sub
+	End If
+
+	'-------------------------------------------------
+	' Check the selected file name has the correct
+	' extension
+	'-------------------------------------------------
+	if UCase$(Right$(sOutputName, 3)) <> UCase$("TAB") Then
+		Call MyPrint("Output file has incorrect extension - process cancelled")
+		Note "Output file has incorrect extension - process cancelled"
+		Exit Sub
+	End If
+
+	'-------------------------------------------------
+	' Remove the file extension from the output file name
+	'-------------------------------------------------
+	sOutputName = Left$(sOutputName, Len(sOutputName) - 4)
+
+	Call MyPrint("Output File = '" + sOutputFile + "'")
+
+	'-------------------------------------------------
+	' Close the dialog
+	'-------------------------------------------------
+	Dialog Remove
+
+	'-------------------------------------------------
+	' Clear the log file (if it exists)
+	'-------------------------------------------------
+	If bClearLog = True Then
+		If FileExists(sLogFileName) Then
+			Kill sLogFileName
+		End If
+
+	End If
+
+	Call MyPrint("----------------------------------------------------------------------")
+	Call MyPrint("Process started!")
+	Call MyPrint("----------------------------------------------------------------------")
+	Call MyPrint("")
+
+	'-------------------------------------------------
+	' Call the subroutine to create the new
+	' output buffer table.
+	'-------------------------------------------------
+	Call CreateBufferTable(sOutputPath, sOutputName)
+	Dim lResponse As Logical
+	If sOutputName = "" Then
+		Call MyPrint("Error creating output buffer table.")
+		Call MyPrint("")
+		Call MyPrint("----------------------------------------------------------------------")
+		Call MyPrint("Process stopped!")
+		Call MyPrint("----------------------------------------------------------------------")
+		lResponse = Ask("Process stopped!" + Chr$(10) + Chr$(10) + Chr$(10) + "Show log file?", "Yes", "No")
+		Goto Response
+	End If
+
+
+
+
+
+
+	''Objects Combine Data CommonName=CommonName,Date=Date
+
+
+
+
+
+	'-------------------------------------------------
+	' Process the selections one by one
+	'-------------------------------------------------
+	iInTableCnt = 1
+	ProgressBar "Processing " + iInTableTot + " input tables ..."
+		Calling ProcessTables
+		Range iInTableTot
+
+	If CommandInfo(CMD_INFO_STATUS) Then
+		Call MyPrint("----------------------------------------------------------------------")
+		Call MyPrint("Process completed!")
+		Call MyPrint("----------------------------------------------------------------------")
+		lResponse = Ask("Processing complete!" + Chr$(10) + Chr$(10) + Chr$(10) + "Show log file?", "Yes", "No")
+	Else
+		Call MyPrint("----------------------------------------------------------------------")
+		Call MyPrint("Process interrupted by user!")
+		Call MyPrint("----------------------------------------------------------------------")
+		lResponse = Ask("Processing interrupted!" + Chr$(10) + Chr$(10) + Chr$(10) + "Show log file?", "Yes", "No")
+	End If
+
+Response:
+	'-------------------------------------------------
+	' Ask the user if they want to see the log file
+	'-------------------------------------------------
+	If lResponse = True Then
+		'-------------------------------------------------
+		' Open the Message window and clear it
+		'-------------------------------------------------
+		Close Window Message
+		Open Window Message
+		Set Window Message
+			Position (7,4)
+			Width 5
+			Height 5
+		Print(chr$(12))
+
+		'-------------------------------------------------
+		' Display the log file in the message window
+		'-------------------------------------------------
+		Call PrintLogFile
+
+	End If
+
+End Sub
+
+Sub CreateBufferTable (sOutputPath As String, sOutputName As String)
+	
+'*************************************************
+'* Routine to create a new output buffer table.
+'*************************************************
+
+	Call MyPrint("Creating output buffer table ...")
+
+	'-------------------------------------------------
+	' Replace any spaces in the output table name with
+	' underscores and remove hyphens
+	'-------------------------------------------------
+	sOutputName = StringReplace(sOutputName, " ", "_")
+	sOutputName = StringReplace(sOutputName, "-", "")
+
+	'-------------------------------------------------
+	' Check if an existing output table is
+	' already/still open and close it if it is
+	'-------------------------------------------------
+	If TableIsOpen(sOutputName) Then
+		Call MyPrint("Closing output table ...")
+		Close Table sOutputName
+	End If
+
+	OnError Goto CreateError
+
+	'-------------------------------------------------
+	' Create new output table"
+	'-------------------------------------------------
+	Dim sCmd As String
+	sCmd = "Create Table " + Chr$(34) + sOutputName + Chr$(34) + " (" + sOutColumnDefs + ") file " + Chr$(34) + sOutputPath + sOutputName + ".tab" + Chr$(34)
+	+ " TYPE NATIVE Charset " + Chr$(34) + "WindowsLatin1" + Chr$(34)
+	Run Command (sCmd)
+
+	'-------------------------------------------------
+	' Make output table mappable
+	'-------------------------------------------------
+	sCmd = "Create Map For " + sOutputName + " CoordSys " + sCoordSys
+	Run Command (sCmd)
+
+	Call MyPrint("Created output buffer table.")
+
+	Exit Sub
+
+CreateError:
+	sOutputName = ""
+
+End Sub
+
+Sub ProcessTables()
+'***************************************************************
+'* Process the input table
+'***************************************************************
+
+	Dim sNodeName, sTableName, sColumns, sBufferSize, sDissolveSize As String
+	sNodeName = aInTablesSelected(iInTableCnt).Node
+	sTableName = aInTablesSelected(iInTableCnt).TableName
+	sColumns = aInTablesSelected(iInTableCnt).Columns
+	sBufferSize = aInTablesSelected(iInTableCnt).BufferSize
+	sDissolveSize = aInTablesSelected(iInTableCnt).DissolveSize
+
+	Call MyPrint("Processing table " + sTableName + "(" + iInTableCnt + " of " + iInTableTot + ") ...")
+
+	'-------------------------------------------------
+	' Call the subroutine to select the records from
+	' the selected table for the selected partner
+	'-------------------------------------------------
+	Call BufferRecords(sTableName, sColumns, sBufferSize, sDissolveSize)
+
+	Call MyPrint("Completed process " + iInTableCnt + " of " + iInTableTot + ".")
+	Call MyPrint("")
+
+	'-------------------------------------------------
+	' Increment the progress bar to show progress
+	'-------------------------------------------------
+	ProgressBar = iInTableCnt
+
+	'-------------------------------------------------
+	' Go to the next selection in the list
+	'-------------------------------------------------
+	iInTableCnt = iInTableCnt + 1
+	If iInTableCnt > iInTableTot Then
+		'-------------------------------------------------
+		' Halt processing
+		'-------------------------------------------------
+		ProgressBar = -1
+	End If
+
+End Sub
+
+Sub BufferRecords
+	(sTableName As String,
+	sColumns As String,
+	sBufferSize As String,
+	sDissolveSize As String)
+'*************************************************
+'* Routine to select the records from the
+'* MapInfo table name passed in the call that
+'* intersect with the boundaries where the
+'* partner equals the value passed in the call.
+'*************************************************
+
+	OnError Goto ErrorTrap
+
+	'-------------------------------------------------
+	' Setup the temporary table names
+	'-------------------------------------------------
+	Dim sTempName As String
+	sTempName = "BufferTemp"
+
+	'-------------------------------------------------
+	' Check if the temporary table is already/still open
+	' and close it if it is
+	'-------------------------------------------------
+	If TableIsOpen(sTempName) Then
+		Call MyPrint("Closing temporary table ...")
+		Close Table sTempName
+	End If
+
+	'-------------------------------------------------
+	' Select the required columns from the input
+	' table
+	'-------------------------------------------------
+	Dim sCmd As String
+	sCmd = "Select " + sColumns + ", Obj From " + sTableName + " Into " + sTempName + " NoSelect"
+	Run Command (sCmd)
+
+	'-------------------------------------------------
+	' Count the number of rows selected
+	'-------------------------------------------------
+	Dim iRows As Integer
+	iRows = TableInfo(BufferTemp, TAB_INFO_NROWS)
+
+	Call MyPrint("Buffering " + FormatNumber$(iRows) + " rows ...")
+
+	'-------------------------------------------------
+	' If any rows were selected then set the object
+	'-------------------------------------------------
+	If iRows > 0 Then
+
+		'-------------------------------------------------
+		' Set the coordinate system to that of the table
+		'-------------------------------------------------
+		Set Coordsys table BufferTemp
+
+		'-------------------------------------------------
+		' Fetch the first of the selected rows
+		'-------------------------------------------------
+		Fetch First from BufferTemp
+
+		'-------------------------------------------------
+		' Loop through all the selected rows setting the
+		' spatial object
+		'-------------------------------------------------
+		Dim iRow as Integer
+		iRow = 1
+		Do while iRow <= iRows
+
+			Dim X, Y, Z as Integer
+			Z = BufferTemp.col3
+			X = int(BufferTemp.col1 / Z) * Z
+			Y = int(BufferTemp.col2 / Z) * Z
+
+			'-------------------------------------------------
+			' Create a dummy object to plot
+			'-------------------------------------------------
+			Dim oUpdateObj as Object
+
+			If Z <= iMaxPointSize Then
+
+				'-------------------------------------------------
+				' Create a point in the object
+				'-------------------------------------------------
+				Create Point Into Variable oUpdateObj ( X, Y )
+
+			Else
+
+				'-------------------------------------------------
+				' Create a region in the object
+				'-------------------------------------------------
+				Dim pX(5), pY(5) As Integer
+				Dim i As Integer
+				pX(1) = X
+				pY(1) = Y
+				pX(2) = pX(1) + Z
+				pY(2) = pY(1)
+				pX(3) = pX(1) + Z
+				pY(3) = pY(1) + Z
+				pX(4) = pX(1)
+				pY(4) = pY(1) + Z
+				pX(5) = pX(1)
+				pY(5) = pY(1)
+
+				'-------------------------------------------------
+				' Create an empty region object
+				'-------------------------------------------------
+				Create Region Into Variable oUpdateObj 0
+
+				'-------------------------------------------------
+				' Now add nodes to populate the object
+				'-------------------------------------------------
+				For i = 1 to 5
+					Alter Object oUpdateObj Node Add ( pX(i), pY(i) )
+				Next
+
+			End If
+
+			'-------------------------------------------------
+			' Update the object in the table
+			'-------------------------------------------------
+			Update BufferTemp Set Obj = oUpdateObj Where RowID = iRow
+
+			'-------------------------------------------------
+			' Fetch the next of the selected rows
+			'-------------------------------------------------
+			Fetch next from BufferTemp
+			iRow = iRow + 1
+
+		Loop
+
+		'-------------------------------------------------
+		' Save the updates
+		'-------------------------------------------------
+		Set ProgressBars Off
+
+		sCmd = "Commit Table " + sTempName
+		Run Command (sCmd)
+
+		Set ProgressBars On
+
+	End If
+
+CleanUp:
+	'-------------------------------------------------
+	' Close the temporary NewObjtable if it is
+	' already/still open in the current MapInfo session
+	'-------------------------------------------------
+	If TableIsOpen(sTempName) Then
+		Close Table sTempName
+	End If
+
+	'-------------------------------------------------
+	' Close the the Selection table if it is
+	' already/still open in the current MapInfo session
+	'-------------------------------------------------
+	If TableIsOpen("Selection") Then
+		Close Table Selection
+	End If
+
+	'-------------------------------------------------
+	' Unselect all records
+	'-------------------------------------------------
+	Run Menu command M_QUERY_UNSELECT
+
+	Exit Sub
+	
+ErrorTrap:
+	Note str$(Err()) + ": " + Error$()
+	Call MyPrint(str$(Err()) + ": " + Error$())
+	Exit Sub
+
+End Sub
+
+Sub SetSymbology(sNodeName as String, sLocalName As String, sShortName As String)
+'***************************************************************
+'* Retrieve the symbology styles and clauses from the config file
+'* which is a XML document
+'***************************************************************
+
+	Dim bParseError As SmallInt
+	Dim hXMLDoc As MIXmlDocument
+	Dim hXMLRoot As MIXmlNode
+	Dim hXMLNode As MIXmlNode
+	Dim hXMLSQLTableNode As MIXmlNode
+	Dim hXMLTableNode As MIXmlNode
+	Dim hXMLSymbologyNode As MIXmlNode
+	Dim hXMLSymbolNodeList As MIXMLNodeList
+	Dim hXMLSymbolNode As MIXmlNode
+
+	OnError Goto GetSymbologyError
+
+	'-------------------------------------------------
+	' Create a document handle
+	'-------------------------------------------------
+	hXMLDoc = MIXmlDocumentCreate()
+	If hXMLDoc Then
+
+		'-------------------------------------------------
+		' Load the document into the document handle
+		'-------------------------------------------------
+		Dim iXMLLoad As SmallInt
+		iXMLLoad = MIXmlDocumentLoad(hXMLDoc, ApplicationDirectory$() + "DataBuffer.xml", bParseError, FALSE, FALSE)
+		if iXMLLoad > 0 Then
+
+			'-------------------------------------------------
+			' Get a handle on the XML root node of the document
+			'-------------------------------------------------
+			hXMLRoot = MIXmlDocumentGetRootNode(hXMLDoc)
+			If hXMLRoot Then
+
+				'-------------------------------------------------
+				' Get a handle on the DataBuffer node
+				'-------------------------------------------------
+				hXMLNode = MIXmlSelectSingleNode(hXMLRoot, "DataBuffer")
+	          	If hXMLNode Then
+	
+					'-------------------------------------------------
+					' Get a handle on the OutTable node
+					'-------------------------------------------------
+					hXMLSQLTableNode = MIXmlSelectSingleNode(hXMLNode, "OutTable")
+
+					'-------------------------------------------------
+					' Get a handle on the current SQL table node
+					'-------------------------------------------------
+					hXMLTableNode = MIXmlSelectSingleNode(hXMLSQLTableNode, sNodeName)
+
+					'-------------------------------------------------
+					' Get a handle on the symbology node for the table
+					'-------------------------------------------------
+					hXMLSymbologyNode = MIXmlSelectSingleNode(hXMLTableNode, "Symbology")
+
+					'-------------------------------------------------
+					' Get a handle on the node map of the above node
+					'-------------------------------------------------
+					hXMLSymbolNodeList = MIXMLGetChildList(hXMLSymbologyNode)
+
+					'-------------------------------------------------
+					' Get a handle on the first attribute in the node list
+					'-------------------------------------------------
+					hXMLSymbolNode = MIXMLGetNextNode(hXMLSymbolNodeList)
+
+					'-------------------------------------------------
+					' Loop through all the attributes in the node list
+					' applying the style using the SQL clauses
+					'-------------------------------------------------
+					Dim i As Integer
+					i = 0
+					Do while hXMLSymbolNode
+						
+						'-------------------------------------------------
+						' Close the temporary NewStyle table if it is
+						' already/still open in the current MapInfo session
+						'-------------------------------------------------
+						If TableIsOpen("NewStyle") Then
+							Close Table NewStyle
+						End If
+
+						i = i + 1
+
+						'-------------------------------------------------
+						' Set the SQL clause used to retrieve the
+						' required rows from the SQL table
+						'-------------------------------------------------
+						Dim sClause As String
+						sClause = GetSingleNodeValue(hXMLSymbolNode, "Clause")
+						If sClause <> "" Then
+						    sClause = " And " + sClause
+						End If
+
+						'-------------------------------------------------
+						' Get the type of object (i.e. Point or Region)
+						'-------------------------------------------------
+						Dim sObject As String
+						sObject = GetSingleNodeValue(hXMLSymbolNode, "Object")
+
+						'-------------------------------------------------
+						' Select all the rows of the desired object type
+						' matching the required SQL clause
+						'-------------------------------------------------
+						Dim sCmd As String
+						sCmd = "Select * From " + sLocalName + "_" + sShortName + " Where Str$(obj) = """ + sObject + "" + sClause + " Into NewStyle NoSelect"
+						Run Command (sCmd)
+
+						'-------------------------------------------------
+						' Count the number of rows selected
+						'-------------------------------------------------
+						Dim iRows As Integer
+						iRows = TableInfo(NewStyle, TAB_INFO_NROWS)
+
+						Call MyPrint("Setting " + sObject + " style for " + FormatNumber$(iRows) + " rows where " + sClause)
+
+						'-------------------------------------------------
+						' If any rows were selected then set the styles
+						'-------------------------------------------------
+						If iRows > 0 Then
+
+							'-------------------------------------------------
+							' Set the styles (depending on type of object)
+							'-------------------------------------------------
+							Dim sSymbol, sPen, sBrush As String
+							Dim stlSymbol As Symbol
+							Dim stlPen As Pen
+							Dim stlBrush As Brush
+
+							Do Case sObject
+								Case "Point"
+									sSymbol = GetSingleNodeValue(hXMLSymbolNode, "Symbol")
+									stlSymbol = STLText2Symbol(sSymbol)
+								Case "Region"
+									sPen = GetSingleNodeValue(hXMLSymbolNode, "Pen")
+									stlPen = STLText2Pen(sPen)
+									sBrush = GetSingleNodeValue(hXMLSymbolNode, "Brush")
+									stlBrush = STLText2Brush(sBrush)
+								Case Else
+							End Case
+
+							'-------------------------------------------------
+							' Alter the object style depending on the object
+							' type and style type
+							'-------------------------------------------------
+							Do Case sObject
+								Case "Point"
+									Update NewStyle Set Obj = SetStylePoint(Obj, stlSymbol)
+								Case "Region"
+									Update NewStyle Set Obj = SetStylePolygon(Obj, stlPen, stlBrush)
+								Case Else
+							End Case
+
+						End If
+
+						'-------------------------------------------------
+						' Get a handle on the next attribute in the node list
+						'-------------------------------------------------
+						hXMLSymbolNode = MIXMLGetNextNode(hXMLSymbolNodeList)
+
+					Loop
+
+				End If
+
+			End If
+
+		Else
+
+			Note "Error : " + MIGetErrorMessage()
+
+		End If
+
+	End If
+
+CleanUp:
+	'-------------------------------------------------
+	' Destroy the handles
+	'-------------------------------------------------
+	If hXMLSymbolNode Then Call MIXmlNodeDestroy(hXMLSymbolNode) End If
+	If hXMLSymbolNodeList Then Call MIXmlNodeListDestroy(hXMLSymbolNodeList) End If
+	If hXMLSymbologyNode Then Call MIXmlNodeDestroy(hXMLSymbologyNode) End If
+	If hXMLTableNode Then Call MIXmlNodeDestroy(hXMLTableNode) End If
+
+	If hXMLSQLTableNode Then Call MIXmlNodeDestroy(hXMLSQLTableNode) End If
+	If hXMLNode Then Call MIXmlNodeDestroy(hXMLNode) End If
+	If hXMLRoot Then Call MIXmlNodeDestroy(hXMLRoot) End If
+	If hXMLDoc Then Call MIXmlDocumentDestroy(hXMLDoc) End If
+
+	Exit Sub
+
+GetSymbologyError:
+	Note str$(Err()) + ": " + Error$()
+	Exit Sub
+
+End Sub
+
+Function SetStylePoint(ByVal oObj As Object, ByVal stlSymbol As Symbol) As Object
+
+	Alter Object oObj Info OBJ_INFO_SYMBOL, stlSymbol
+	SetStylePoint = oObj
+
+End Function
+
+Function SetStylePolygon(ByVal oObj As Object, ByVal stlPen As Pen, ByVal stlBrush As Brush) As Object
+
+	Alter Object oObj Info OBJ_INFO_PEN, stlPen
+	Alter Object oObj Info OBJ_INFO_BRUSH, stlBrush
+	SetStylePolygon = oObj
+
+End Function
+
+Sub AboutBox
+'***************************************************************
+'* Display the 'About' dialog box
+'***************************************************************
+
+	Dialog
+		Title "About Data Buffer " + sVersion
+		Width 230
+		Height 115
+
+	Control StaticText
+		Title "This program will extract SQL records and/or GIS"
+		Position 10,10
+	Control StaticText
+		Title "layers that intersect with partner boundary feature(s)."
+		Position 10,20
+	Control StaticText
+		Title "The user can select which SQL table or GIS layers"
+		Position 10,30
+	Control StaticText
+		Title "to extract and which partner boundaries to extract for."
+		Position 10,40
+	Control StaticText
+		Title "Created by Andy Foy Consulting."
+		Position 10,60
+	Control StaticText
+		Title "Copyright© 2012-2013 GiGL, 2015 - 2016 TVERC & GiGL."
+		Position 10,70
+	Control OKButton
+		Position 185,95
+
+End Sub
+
+Sub MyPrint(ByVal sMsg As String)
+'***************************************************************
+'* Bespoke print function
+'***************************************************************
+
+	'-------------------------------------------------
+	' Open the log file for output
+	'-------------------------------------------------
+	Open File sLogFileName For Append As #1
+
+	'-------------------------------------------------
+	' Write the message passed to the output file
+
+	'-------------------------------------------------
+	Print #1, FormatDate$(CurDate()) + " " + FormatTime$(CurTime(),"H:mm:ss") + " : " + sMsg
+
+	'-------------------------------------------------
+	' Close the output file
+	'-------------------------------------------------
+	Close File #1
+
+End Sub
+
+Sub PrintLogFile()
+'***************************************************************
+'* Print the log file to the message window
+'***************************************************************
+
+	'-------------------------------------------------
+	' Open the log file for input
+	'-------------------------------------------------
+	Open File sLogFileName For Input As #99
+
+	'-------------------------------------------------
+	' Get the first line
+	'-------------------------------------------------
+	Dim sMsg As String
+	Line Input #99, sMsg
+
+	'-------------------------------------------------
+	' Loop through all the lines until the log file
+	' is empty
+	'-------------------------------------------------
+	Do Until EOF(99)
+		'-------------------------------------------------
+		' Print the log file line to the message window
+		'-------------------------------------------------
+		Print sMsg
+
+		'-------------------------------------------------
+		' Get the first line
+		'-------------------------------------------------
+		Line Input #99, sMsg
+	Loop
+
+	'-------------------------------------------------
+	' Refresh the message window
+	'-------------------------------------------------
+	Update Window WIN_MESSAGE
+
+	'-------------------------------------------------
+	' Close the log file
+	'-------------------------------------------------
+	Close File #99
+
+End Sub
+
+Sub egsit
+'***************************************************************
+'* Exit the program
+'***************************************************************
+
+	End Program
+
+End Sub

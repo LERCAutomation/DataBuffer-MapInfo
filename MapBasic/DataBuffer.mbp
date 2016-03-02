@@ -1,0 +1,5 @@
+[Link]
+Application=DataBuffer.mbx
+Module=DataBuffer.mbo
+Module=GenFunctions.mbo
+Module=XMLFunctions.mbo
