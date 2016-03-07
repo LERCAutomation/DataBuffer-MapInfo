@@ -560,10 +560,24 @@ Sub CheckSelection
 		Goto Response
 	End If
 
+	Alter Table sOutputName (Drop Temp)
+
+	'-------------------------------------------------
+	' Drop the temporary column
+	'-------------------------------------------------
+	Set ProgressBars Off
+
+	'-------------------------------------------------
+	' Pack the output table
+	'-------------------------------------------------
+	Pack Table sOutputName Graphic Data
+
+	Set ProgressBars On
+
 	'-------------------------------------------------
 	' Add the output table to the top most map window
 	' (if there is one), otherwise create a new map
-	' window using the table.
+	' window using the table
 	'-------------------------------------------------
 	If NumWindows() > 0 Then
 		Add Map Layer sOutputName
@@ -625,7 +639,7 @@ Sub CreateBufferTable (sOutputPath As String, sOutputName As String)
 	' Create new output table"
 	'-------------------------------------------------
 	Dim sCmd As String
-	sCmd = "Create Table " + Chr$(34) + sOutputName + Chr$(34) + " (" + sOutColumnDefs + ") file " + Chr$(34) + sOutputPath + sOutputName + ".tab" + Chr$(34)
+	sCmd = "Create Table " + Chr$(34) + sOutputName + Chr$(34) + " (" + sOutColumnDefs + ", Temp Integer) file " + Chr$(34) + sOutputPath + sOutputName + ".tab" + Chr$(34)
 	+ " TYPE NATIVE Charset " + Chr$(34) + "WindowsLatin1" + Chr$(34)
 	Run Command (sCmd)
 
@@ -767,7 +781,7 @@ Sub BufferRecords
 	End If
 
 	'-------------------------------------------------
-	' Check if the records need to be clustered.
+	' Check if the records need to be clustered
 	'-------------------------------------------------
 	Dim bCluster As Logical, iClusterSize As Integer
 	iClusterSize = (Int(iDissolveSize) / 2) - 1
@@ -776,32 +790,32 @@ Sub BufferRecords
 	End If
 
 	'-------------------------------------------------
-	' If the records need to be clustered (dissolved).
+	' If the records need to be clustered (dissolved)
 	'-------------------------------------------------
 	If bCluster Then
 
 		'-------------------------------------------------
 		' Create a new cluster table for the input records
-		' if they are to be dissolved.
+		' if they are to be dissolved
 		'-------------------------------------------------
 		Dim sCmd As String
 		sCmd = "Create Table " + Chr$(34) + sTempCluster + Chr$(34) + " (ClusterID Integer) file " + Chr$(34) + sOutputPath + "\" + sTempCluster + ".tab" + Chr$(34) + " TYPE NATIVE Charset " + Chr$(34) + "WindowsLatin1" + Chr$(34)
 		Run Command (sCmd)
 	
 		'-------------------------------------------------
-		' Make the cluster table mappable.
+		' Make the cluster table mappable
 		'-------------------------------------------------
 		sCmd = "Create Map For " + sTempCluster + " CoordSys " + sCoordSys
 		Run Command (sCmd)
 	
 		'-------------------------------------------------
-		' Create a single clustered object.
+		' Create a single clustered object
 		'-------------------------------------------------
 		sCmd = "Create Object As Buffer From " + sTableName + " Width " + iClusterSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sTempCluster
 		Run Command (sCmd)
 	
 		'-------------------------------------------------
-		' Disaggregate the clustered object.
+		' Disaggregate the clustered object
 		'-------------------------------------------------
 		sCmd = "Objects Disaggregate Into Table " + sTempCluster
 		Run Command (sCmd)
@@ -813,7 +827,7 @@ Sub BufferRecords
 		Run Command (sCmd)
 	
 		'-------------------------------------------------
-		' Save the clustered objects.
+		' Save the clustered objects
 		'-------------------------------------------------
 		sCmd = "Commit Table " + sTempCluster
 		Run Command (sCmd)
@@ -833,17 +847,19 @@ Sub BufferRecords
 
 	'-------------------------------------------------
 	' Select the required columns from the input
-	' table.
+	' table
 	'-------------------------------------------------
 	Call MyPrint("Selecting feature from " + sTableName + " ...")
 
 	'-------------------------------------------------
-	' If the records need to be clustered (dissolved).
+	' If the records need to be clustered (dissolved)
+	' then include the cluster ID from the overlapping
+	' cluster
 	'-------------------------------------------------
 	If bCluster Then
-		sCmd = "Select " + sColumns + ", Obj, CentroidX(Obj) " + Chr$(34) + "xCol" + Chr$(34) + ", CentroidY(Obj) " + Chr$(34) + "yCol" + Chr$(34) + ", ClusterID From " + sTableName + ", " + sTempCluster + " Where " + sTableName + ".Obj Within " + sTempCluster + ".Obj Order By ClusterID, " + sSortOrder + " Into " + sTempInput + " NoSelect"
+		sCmd = "Select " + sColumns + ", Obj, ClusterID From " + sTableName + ", " + sTempCluster + " Where " + sTableName + ".Obj Within " + sTempCluster + ".Obj Order By ClusterID, " + sSortOrder + " Into " + sTempInput + " NoSelect"
 	Else
-		sCmd = "Select " + sColumns + ", Obj, CentroidX(Obj) " + Chr$(34) + "xCol" + Chr$(34) + ", CentroidY(Obj) " + Chr$(34) + "yCol" + Chr$(34) + ", 0" + Chr$(34) + "ClusterID" + Chr$(34) + " From " + sTableName + " Order By " + sSortOrder + " Into " + sTempInput + " NoSelect"
+		sCmd = "Select " + sColumns + ", Obj, 0" + Chr$(34) + "ClusterID" + Chr$(34) + " From " + sTableName + " Order By " + sSortOrder + " Into " + sTempInput + " NoSelect"
 	End If
 	Run Command (sCmd)
 
@@ -912,7 +928,12 @@ Sub BufferRecords
 				' Set an alias for the column
 				'-------------------------------------------------
 				sColumn = "TempInput.Col" + iColumn
-				sColumnVal = StringReplace(sColumn, Chr$(34), "")
+				sColumnVal = sColumn
+				If Instr(1, sColumnVal, Chr$(34)) > 0 Then
+					
+					sColumnVal = StringReplace(sColumnVal, Chr$(34), "")
+
+				End If
 				
 				'-------------------------------------------------
 				' Check if the key columns have changed from the
@@ -937,8 +958,6 @@ Sub BufferRecords
 			'-------------------------------------------------
 			If bSame = True And iLastClusterId = TempInput.ClusterID Then
 
-				Call MyPrint("Row " + iRow + " same ... cluster = " + iLastClusterId)
-
 				'-------------------------------------------------
 				' Loop through every column in the output table
 				' to update the values
@@ -949,7 +968,13 @@ Sub BufferRecords
 					' Set an alias for the column
 					'-------------------------------------------------
 					sColumn = "TempInput.Col" + iColumn
-					sColumnVal = StringReplace(sColumn, Chr$(34), "")
+					sColumnVal = sColumn
+
+					If Instr(1, sColumnVal, Chr$(34)) > 0 Then
+						
+						sColumnVal = StringReplace(sColumnVal, Chr$(34), "")
+	
+					End If
 					
 					'-------------------------------------------------
 					' Check if the range columns have changed
@@ -976,86 +1001,92 @@ Sub BufferRecords
 					'-------------------------------------------------
 					' Select all the 'Temp' objects
 					'-------------------------------------------------
-					sCmd = "Select * From " + sOutputName + " Where Col1 = " + Chr$(34) + "Temp" + Chr$(34) + " Into " + sTempOutput + " NoSelect"
-					Run Command (sCmd)
-
-					'-------------------------------------------------
-					' Create a buffered object or objects from the
-					' 'Temp' objects
-					'-------------------------------------------------
-					If bCluster Then
-						sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + " Data Col1=" + Chr$(34) + "Temp2" + Chr$(34)
-					Else
-						sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + " Data Col1=" + Chr$(34) + "Temp2" + Chr$(34)
-					End If
-					Run Command (sCmd)
-
-					'-------------------------------------------------
-					' Delete all the original 'Temp' objects
-					'-------------------------------------------------
-					sCmd = "Select * From " + sOutputName + " Where Col1 = " + Chr$(34) + "Temp" + Chr$(34) + " Into " + sTempOutput + " NoSelect"
-					Run Command (sCmd)
-
-					sCmd = "Delete From " + sTempOutput
-					Run Command (sCmd)
-
-					'-------------------------------------------------
-					' Select the new buffered object(s)
-					'-------------------------------------------------
-					sCmd = "Select * From " + sOutputName + " Where Col1 = " + Chr$(34) + "Temp2" + Chr$(34) + " Into " + sTempOutput + " NoSelect"
+					sCmd = "Select * From " + sOutputName + " Where Temp = 1 Into " + sTempOutput + " NoSelect"
 					Run Command (sCmd)
 
 					'-------------------------------------------------
 					' Loop through every column in the output table
 					' to set the values
 					'-------------------------------------------------
-					sCmd = "Update " + sTempOutput + " Set"
-	
+					Dim sData As String
+					sData = " Data "
 					For iColumn = 1 to UBound(aOutColumns)
-	
-						'-------------------------------------------------
-						' Set an alias for the column
-						'-------------------------------------------------
-						sColumn = "TempInput.Col" + iColumn
 	
 						Do Case aOutColumns(iColumn).ColumnType
 							Case "Key"
-								sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValKey + Chr$(34)
+								sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValKey + Chr$(34)
 							Case "Cluster"
-								sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValKey + Chr$(34)
+								If bCluster = False Then
+									sColumnVal = aColumnValues(iColumn).ValKey
+									sColumnVal = StringReplace(sColumnVal, Chr$(34), "")
+
+									sData = sData + " Col" + iColumn + " = " + Chr$(34) + sColumnVal + Chr$(34)
+								Else
+									sCmd = "Select Col" + iColumn + ", Count(*) " + Chr$(34) + "Recs" + Chr$(34) + " From " + sOutputName + " Where Temp = 1 Group By Col" + iColumn + " Order By Recs Desc Into TempCommon NoSelect"
+									Run Command (sCmd)
+									Fetch First from TempCommon
+									
+									Dim sCommonVal As String
+									sCommonVal = TempCommon.Col1
+									sCommonVal = StringReplace(sCommonVal, Chr$(34), "")
+	
+									If TableIsOpen("TempCommon") Then
+										Close Table TempCommon
+									End If
+	
+									sData = sData + " Col" + iColumn + " = " + Chr$(34) + sCommonVal + Chr$(34)
+								End If
 							Case "First"
-								sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValFirst + Chr$(34)
+								sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValFirst + Chr$(34)
 							Case "Common"
-								Dim sCmd2 As String
-								sCmd2 = "Select Col " + iColumn + ", Count(*) " + Chr$(34) + "Recs" + Chr$(34) + " From " + sOutputName + " Where Col1 = " + Chr$(34) + "Temp2" + Chr$(34) + " Order By Recs Desc Into TempCommon NoSelect"
-								Run Command (sCmd2)
+								sCmd = "Select Col" + iColumn + ", Count(*) " + Chr$(34) + "Recs" + Chr$(34) + " From " + sOutputName + " Where Temp = 1 Group By Col" + iColumn + " Order By Recs Desc Into TempCommon NoSelect"
+								Run Command (sCmd)
 								Fetch First from TempCommon
 								
-								Dim sCommonVal As String
 								sCommonVal = TempCommon.Col1
+								sCommonVal = StringReplace(sCommonVal, Chr$(34), "")
 
-								sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + sCommonVal + Chr$(34)
+								If TableIsOpen("TempCommon") Then
+									Close Table TempCommon
+								End If
+
+								sData = sData + " Col" + iColumn + " = " + Chr$(34) + sCommonVal + Chr$(34)
 							Case "Range"
 								If aColumnValues(iColumn).ValMin = aColumnValues(iColumn).ValMax Then
-									sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMin + Chr$(34)
+									sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMin + Chr$(34)
 								Else
-									sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMin + " - " + aColumnValues(iColumn).ValMax + Chr$(34)
+									sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMin + " - " + aColumnValues(iColumn).ValMax + Chr$(34)
 								End If
 							Case Else
-								sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValKey + Chr$(34)
+								sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValKey + Chr$(34)
 						End Case
 						
-						If iColumn <> UBound(aOutColumns) Then
-							sCmd = sCmd + ","
-						End If
+						sData = sData + ","
 						
 					Next
 						
+					sData = sData + " Temp = 0"
+						
 					'-------------------------------------------------
-					' Update the data values of the buffered object(s)
+					' Create a buffered object or objects from the
+					' 'Temp' objects
 					'-------------------------------------------------
-					Run Command sCmd
-				
+					If bCluster Then
+						sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + sData
+					Else
+						sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + sData
+					End If
+					Run Command (sCmd)
+
+					'-------------------------------------------------
+					' Delete all the original 'Temp' objects
+					'-------------------------------------------------
+					sCmd = "Select * From " + sOutputName + " Where Temp = 1 Into " + sTempOutput + " NoSelect"
+					Run Command (sCmd)
+
+					sCmd = "Delete From " + sTempOutput
+					Run Command (sCmd)
+
 				End If
 
 				'-------------------------------------------------
@@ -1068,8 +1099,9 @@ Sub BufferRecords
 					' Set an alias for the column
 					'-------------------------------------------------
 					sColumn = "TempInput.Col" + iColumn
-					sColumnVal = StringReplace(sColumn, Chr$(34), "")
-
+					sColumnVal = sColumn
+					sColumnVal = StringReplace(sColumnVal, Chr$(34), "")
+	
 					'-------------------------------------------------
 					' Set the column values
 					'-------------------------------------------------
@@ -1091,12 +1123,17 @@ Sub BufferRecords
 			End If
 
 			'-------------------------------------------------
-			' Copy the record as a 'Temp' object
+			' Copy the record into the output table as a
+			' 'Temp' object
 			'-------------------------------------------------
-			sCmd = "Select Obj, " + Chr$(34) + "Temp" + Chr$(34)+ " From " + sTempInput + " Where RowID = " + iRow + " Into Temp99"
+			sCmd = "Select " + sColumns + ", 1 " + Chr$(34) + "Temp" + Chr$(34) + ", Obj From " + sTempInput + " Where RowID = " + iRow + " Into TempInsert"
 			Run Command (sCmd)
-			sCmd = "Insert Into " + sOutputName + " (Obj, Col1) Select * From Temp99"
+			sCmd = "Insert Into " + sOutputName + " (" + sColumns + ", Temp, Obj) Select * From TempInsert"
 			Run Command (sCmd)
+
+			If TableIsOpen("TempInsert") Then
+				Close Table TempInsert
+			End If
 
 			'-------------------------------------------------
 			' Fetch the next of the selected rows
@@ -1113,78 +1150,89 @@ Sub BufferRecords
 		'-------------------------------------------------
 		' Select all the 'Temp' objects
 		'-------------------------------------------------
-		sCmd = "Select * From " + sOutputName + " Where Col1 = " + Chr$(34) + "Temp" + Chr$(34) + " Into " + sTempOutput + " NoSelect"
-		Run Command (sCmd)
-
-		'-------------------------------------------------
-		' Create a buffered object or objects from the
-		' 'Temp' objects
-		'-------------------------------------------------
-		If bCluster Then
-			sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + " Data Col1=" + Chr$(34) + "Temp2" + Chr$(34)
-		Else
-			sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + " Group by RowId Data Col1=" + Chr$(34) + "Temp2" + Chr$(34)
-		End If
-		Run Command (sCmd)
-
-		'-------------------------------------------------
-		' Delete all the original 'Temp' objects
-		'-------------------------------------------------
-		sCmd = "Select * From " + sOutputName + " Where Col1 = " + Chr$(34) + "Temp" + Chr$(34) + " Into " + sTempOutput + " NoSelect"
-		Run Command (sCmd)
-
-		sCmd = "Delete From " + sTempOutput
-		Run Command (sCmd)
-
-		'-------------------------------------------------
-		' Select the new buffered object(s)
-		'-------------------------------------------------
-		sCmd = "Select * From " + sOutputName + " Where Col1 = " + Chr$(34) + "Temp2" + Chr$(34) + " Into " + sTempOutput + " NoSelect"
+		sCmd = "Select * From " + sOutputName + " Where Temp = 1 Into " + sTempOutput + " NoSelect"
 		Run Command (sCmd)
 
 		'-------------------------------------------------
 		' Loop through every column in the output table
 		' to set the values
 		'-------------------------------------------------
-		sCmd = "Update " + sTempOutput + " Set"
-
+		sData = " Data "
 		For iColumn = 1 to UBound(aOutColumns)
-
-			'-------------------------------------------------
-			' Set an alias for the column
-			'-------------------------------------------------
-			sColumn = "TempInput.Col" + iColumn
 
 			Do Case aOutColumns(iColumn).ColumnType
 				Case "Key"
-					sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValKey + Chr$(34)
+					sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValKey + Chr$(34)
 				Case "Cluster"
-					sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValKey + Chr$(34)
+					If bCluster = False Then
+						sColumnVal = aColumnValues(iColumn).ValKey
+						sColumnVal = StringReplace(sColumnVal, Chr$(34), "")
+
+						sData = sData + " Col" + iColumn + " = " + Chr$(34) + sColumnVal + Chr$(34)
+					Else
+						sCmd = "Select Col" + iColumn + ", Count(*) " + Chr$(34) + "Recs" + Chr$(34) + " From " + sOutputName + " Where Temp = 1 Group By Col" + iColumn + " Order By Recs Desc Into TempCommon NoSelect"
+						Run Command (sCmd)
+						Fetch First from TempCommon
+						
+						sCommonVal = TempCommon.Col1
+						sCommonVal = StringReplace(sCommonVal, Chr$(34), "")
+
+						If TableIsOpen("TempCommon") Then
+							Close Table TempCommon
+						End If
+
+						sData = sData + " Col" + iColumn + " = " + Chr$(34) + sCommonVal + Chr$(34)
+					End If
 				Case "First"
-					sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValFirst + Chr$(34)
+					sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValFirst + Chr$(34)
 				Case "Common"
-					sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValCommon + Chr$(34)
+					sCmd = "Select Col" + iColumn + ", Count(*) " + Chr$(34) + "Recs" + Chr$(34) + " From " + sOutputName + " Where Temp = 1 Group By Col" + iColumn + " Order By Recs Desc Into TempCommon NoSelect"
+					Run Command (sCmd)
+					Fetch First from TempCommon
+					
+					sCommonVal = TempCommon.Col1
+					sCommonVal = StringReplace(sCommonVal, Chr$(34), "")
+
+					If TableIsOpen("TempCommon") Then
+						Close Table TempCommon
+					End If
+
+					sData = sData + " Col" + iColumn + " = " + Chr$(34) + sCommonVal + Chr$(34)
 				Case "Range"
 					If aColumnValues(iColumn).ValMin = aColumnValues(iColumn).ValMax Then
-						sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMin + Chr$(34)
+						sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMin + Chr$(34)
 					Else
-						sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMin + " - " + aColumnValues(iColumn).ValMax + Chr$(34)
+						sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMin + " - " + aColumnValues(iColumn).ValMax + Chr$(34)
 					End If
 				Case Else
-					sCmd = sCmd + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValKey + Chr$(34)
-					Call MyPrint("Column " + iColumn + " = Else")
+					sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValKey + Chr$(34)
 			End Case
 			
-			If iColumn <> UBound(aOutColumns) Then
-				sCmd = sCmd + ","
-			End If
+			sData = sData + ","
 			
 		Next
 			
+		sData = sData + " Temp = 0"
+					
 		'-------------------------------------------------
-		' Update the data values of the buffered object(s)
+		' Create a buffered object or objects from the
+		' 'Temp' objects
 		'-------------------------------------------------
-		Run Command sCmd
+		If bCluster Then
+			sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + sData
+		Else
+			sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + sData
+		End If
+		Run Command (sCmd)
+
+		'-------------------------------------------------
+		' Delete all the original 'Temp' objects
+		'-------------------------------------------------
+		sCmd = "Select * From " + sOutputName + " Where Temp = 1 Into " + sTempOutput + " NoSelect"
+		Run Command (sCmd)
+
+		sCmd = "Delete From " + sTempOutput
+		Run Command (sCmd)
 
 		'-------------------------------------------------
 		' Save the updates
