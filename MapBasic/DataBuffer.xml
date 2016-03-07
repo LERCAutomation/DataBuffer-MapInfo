@@ -39,7 +39,7 @@ used by the MapBasic tool to select and export data for the GiGL partners.
   </OutTableName>
 
   <OutColumnDefs>
-	<Value>CommonName Char(100), SciName Char(100), RecYear Char(11), GridRef Char(12), Location Char(100), Design Char(100), Version Char(100), Origin Char(100), Provider Char(100), SurveyName Char(100)</Value>
+	<Value>CommonName Char(100), SciName Char(100), RecYear Char(11), GridRef Char(12), Location Char(100), Design Char(100), Version Char(100), Origin Char(100), Provider Char(100)</Value>
   </OutColumnDefs>
 
   <!-- The coordinate system for mapping tables -->
@@ -54,8 +54,11 @@ used by the MapBasic tool to select and export data for the GiGL partners.
 			<Value>Badgers</Value>
 		</TableName>
 		<Columns>
-			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider, SurveyName</Value>
+			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider</Value>
 		</Columns>
+		<SortOrder>
+			<Value>SciName, GridRef, Location</Value>
+		</SortOrder>
 		<BufferSize>
 			<Value>100</Value>
 		</BufferSize>
@@ -68,8 +71,11 @@ used by the MapBasic tool to select and export data for the GiGL partners.
 			<Value>Dormice</Value>
 		</TableName>
 		<Columns>
-			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider, SurveyName</Value>
+			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider</Value>
 		</Columns>
+		<SortOrder>
+			<Value>SciName, GridRef, Location</Value>
+		</SortOrder>
 		<BufferSize>
 			<Value>100</Value>
 		</BufferSize>
@@ -112,7 +118,7 @@ used by the MapBasic tool to select and export data for the GiGL partners.
 				<value>GridRef</value>
 			</ColumnName>
 			<ColumnType>
-				<value>First</value>
+				<value>Cluster</value>
 			</ColumnType>
 		</Col4>
 		<Col5>
@@ -144,7 +150,7 @@ used by the MapBasic tool to select and export data for the GiGL partners.
 				<value>Origin</value>
 			</ColumnName>
 			<ColumnType>
-				<value>Key</value>
+				<value>Common</value>
 			</ColumnType>
 		</Col8>
 		<Col9>
@@ -155,14 +161,6 @@ used by the MapBasic tool to select and export data for the GiGL partners.
 				<value>First</value>
 			</ColumnType>
 		</Col9>
-		<Col10>
-			<ColumnName>
-				<value>SurveyName</value>
-			</ColumnName>
-			<ColumnType>
-				<value>Key</value>
-			</ColumnType>
-		</Col10>
 	</Columns>
 
 	<!-- The symbology to apply to the new GIS layer -->

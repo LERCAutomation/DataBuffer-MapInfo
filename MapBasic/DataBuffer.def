@@ -91,8 +91,9 @@ Declare Sub CreateBufferTable
 Declare Sub BufferRecords
 	(sTableName As String,
 	sColumns As String,
-	sBufferSize As String,
-	sDissolveSize As String)
+	sSortOrder As String,
+	iBufferSize As Integer,
+	iDissolveSize As Integer)
 Declare Sub SetSymbology
 	(sNodeName As String,
 	sTableName As String,
@@ -245,6 +246,7 @@ Type InTable
 	Node As String
 	TableName As String
 	Columns As String
+	SortOrder As String
 	BufferSize As Integer
 	DissolveSize As Integer
 End Type
@@ -261,8 +263,6 @@ Type ColumnValues
 	ValMax As String
 	ValFirst As String
 	ValCommon As String
-	Easting As String
-	Northing As String
 End Type
 
 '-------------------------------------------------
