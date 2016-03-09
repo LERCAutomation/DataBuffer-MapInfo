@@ -20,7 +20,7 @@
 '* along with DataBuffer.  If not, see <http://www.gnu.org/licenses/>.
 '*
 '***************************************************************
-'* DataBuffer v1.01
+'* DataBuffer v1.02
 '*
 '* Buffers and (optionally) consolidates records from one or more
 '* MapInfo GIS layers and merges the results into a new output
@@ -28,7 +28,12 @@
 '*
 '*
 '* Created:			Andy Foy - February 2016
-'* Last revised:	Andy Foy - February 2016
+'* Last revised:	Andy Foy - March 2016
+'*
+'* *****************  Version 1.02  *****************
+'* Author: Andy Foy		Date: 09/03/2016
+'* A. Ask user if they want to keep the dialog open.
+'* B. Open log file using Notepad.exe.
 '* 
 '* *****************  Version 1.01  *****************
 '* Author: Andy Foy		Date: 24/02/2016
@@ -45,7 +50,7 @@ Sub Main
 	'-------------------------------------------------
 	' Set the version number
 	'-------------------------------------------------
-	sVersion = "1.01"
+	sVersion = "1.02"
 
 	'-------------------------------------------------
 	' Create a new menu
@@ -504,11 +509,6 @@ Sub CheckSelection
 	Call MyPrint("Output File = '" + sOutputFile + "'")
 
 	'-------------------------------------------------
-	' Close the dialog
-	'-------------------------------------------------
-	Dialog Remove
-
-	'-------------------------------------------------
 	' Clear the log file (if it exists)
 	'-------------------------------------------------
 	If bClearLog = True Then
@@ -535,7 +535,7 @@ Sub CheckSelection
 		Call MyPrint("----------------------------------------------------------------------")
 		Call MyPrint("Process stopped!")
 		Call MyPrint("----------------------------------------------------------------------")
-		lResponse = Ask("Process stopped!" + Chr$(10) + Chr$(10) + Chr$(10) + "Show log file?", "Yes", "No")
+		lResponse = Ask("Process stopped!" + Chr$(10) + Chr$(10) + Chr$(10) + "Do you wish to close the form?", "Yes", "No")
 		Goto Response
 	End If
 
@@ -551,12 +551,12 @@ Sub CheckSelection
 		Call MyPrint("----------------------------------------------------------------------")
 		Call MyPrint("Process completed!")
 		Call MyPrint("----------------------------------------------------------------------")
-		lResponse = Ask("Processing complete!" + Chr$(10) + Chr$(10) + Chr$(10) + "Show log file?", "Yes", "No")
+		lResponse = Ask("Processing complete!" + Chr$(10) + Chr$(10) + Chr$(10) + "Do you wish to close the form?", "Yes", "No")
 	Else
 		Call MyPrint("----------------------------------------------------------------------")
 		Call MyPrint("Process interrupted by user!")
 		Call MyPrint("----------------------------------------------------------------------")
-		lResponse = Ask("Processing interrupted!" + Chr$(10) + Chr$(10) + Chr$(10) + "Show log file?", "Yes", "No")
+		lResponse = Ask("Processing interrupted!" + Chr$(10) + Chr$(10) + Chr$(10) + "Do you wish to close the form?", "Yes", "No")
 		Goto Response
 	End If
 
@@ -586,27 +586,18 @@ Sub CheckSelection
 	End If
 
 Response:
-	'-------------------------------------------------
-	' Ask the user if they want to see the log file
-	'-------------------------------------------------
 	If lResponse = True Then
 		'-------------------------------------------------
-		' Open the Message window and clear it
+		' Close the dialog
 		'-------------------------------------------------
-		Close Window Message
-		Open Window Message
-		Set Window Message
-			Position (7,4)
-			Width 5
-			Height 5
-		Print(chr$(12))
-
-		'-------------------------------------------------
-		' Display the log file in the message window
-		'-------------------------------------------------
-		Call PrintLogFile
+		Dialog Remove
 
 	End If
+
+	'-------------------------------------------------
+	' Display the log file in the message window
+	'-------------------------------------------------
+	Call PrintLogFile
 
 End Sub
 
@@ -1567,45 +1558,15 @@ End Sub
 
 Sub PrintLogFile()
 '***************************************************************
-'* Print the log file to the message window
+'* Open the log file in Notepad
 '***************************************************************
 
 	'-------------------------------------------------
-	' Open the log file for input
+	' Open the log file in Notepad
 	'-------------------------------------------------
-	Open File sLogFileName For Input As #99
-
-	'-------------------------------------------------
-	' Get the first line
-	'-------------------------------------------------
-	Dim sMsg As String
-	Line Input #99, sMsg
-
-	'-------------------------------------------------
-	' Loop through all the lines until the log file
-	' is empty
-	'-------------------------------------------------
-	Do Until EOF(99)
-		'-------------------------------------------------
-		' Print the log file line to the message window
-		'-------------------------------------------------
-		Print sMsg
-
-		'-------------------------------------------------
-		' Get the first line
-		'-------------------------------------------------
-		Line Input #99, sMsg
-	Loop
-
-	'-------------------------------------------------
-	' Refresh the message window
-	'-------------------------------------------------
-	Update Window WIN_MESSAGE
-
-	'-------------------------------------------------
-	' Close the log file
-	'-------------------------------------------------
-	Close File #99
+	Dim sCmd As String
+	sCmd = "Run Program " +  + Chr$(34) + "NotePad.exe " + sLogFileName + Chr$(34)
+	Run Command (sCmd)
 
 End Sub
 
