@@ -547,12 +547,10 @@ Sub CheckSelection
 		Calling ProcessTables
 		Range iInTableTot
 
-	If CommandInfo(CMD_INFO_STATUS) Then
-		Call MyPrint("----------------------------------------------------------------------")
-		Call MyPrint("Process completed!")
-		Call MyPrint("----------------------------------------------------------------------")
-		lResponse = Ask("Processing complete!" + Chr$(10) + Chr$(10) + Chr$(10) + "Do you wish to close the form?", "Yes", "No")
-	Else
+	'-------------------------------------------------
+	' If the process was interrupted by the user
+	'-------------------------------------------------
+	If Not CommandInfo(CMD_INFO_STATUS) Then
 		Call MyPrint("----------------------------------------------------------------------")
 		Call MyPrint("Process interrupted by user!")
 		Call MyPrint("----------------------------------------------------------------------")
@@ -584,6 +582,15 @@ Sub CheckSelection
 	Else
 		Map From sOutputName
 	End If
+
+	Call MyPrint("----------------------------------------------------------------------")
+	Call MyPrint("Process completed!")
+	Call MyPrint("----------------------------------------------------------------------")
+
+	'-------------------------------------------------
+	' Ask the user if they want to close the form
+	'-------------------------------------------------
+	lResponse = Ask("Processing complete!" + Chr$(10) + Chr$(10) + Chr$(10) + "Do you wish to close the form?", "Yes", "No")
 
 Response:
 	If lResponse = True Then
