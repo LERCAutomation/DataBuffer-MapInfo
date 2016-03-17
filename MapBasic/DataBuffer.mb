@@ -20,7 +20,7 @@
 '* along with DataBuffer.  If not, see <http://www.gnu.org/licenses/>.
 '*
 '***************************************************************
-'* DataBuffer v1.02
+'* DataBuffer v1.03
 '*
 '* Buffers and (optionally) consolidates records from one or more
 '* MapInfo GIS layers and merges the results into a new output
@@ -29,6 +29,11 @@
 '*
 '* Created:			Andy Foy - February 2016
 '* Last revised:	Andy Foy - March 2016
+'*
+'* *****************  Version 1.03  *****************
+'* Author: Andy Foy		Date: 17/03/2016
+'* A. Performance improvements.
+'* B. Updated user interface.
 '*
 '* *****************  Version 1.02  *****************
 '* Author: Andy Foy		Date: 09/03/2016
@@ -50,7 +55,7 @@ Sub Main
 	'-------------------------------------------------
 	' Set the version number
 	'-------------------------------------------------
-	sVersion = "1.02"
+	sVersion = "1.03"
 
 	'-------------------------------------------------
 	' Create a new menu
@@ -124,9 +129,6 @@ Sub GetDefaultValues
 
 					' Default file path to store extracts in sub-folders
 					sDefaultPath = GetSingleNodeValue(hXMLNode, "DefaultPath")
-
-					' Name of the table to create
-					sOutTableName = GetSingleNodeValue(hXMLNode, "OutTableName")
 
 					' Definitions of the columns in the new table
 					sOutColumnDefs = GetSingleNodeValue(hXMLNode, "OutColumnDefs")
@@ -290,8 +292,8 @@ Sub OpenDialog
 	'-------------------------------------------------
 	Dialog
 		Title "Data Buffer " + sVersion
-		Width 300
-		Height 260
+		Width 160
+		Height 190
 		Position 50, 70
 		Calling DialogSetup
 
@@ -304,8 +306,8 @@ Sub OpenDialog
 		ID 1
 		Title ""
 		Position 10, 20
-		Height 170
-		Width 170
+		Height 120
+		Width 140
 
 	'-------------------------------------------------
 	' Add a checkbox for clearing the log file
@@ -313,7 +315,7 @@ Sub OpenDialog
 	Control CheckBox
 		ID 6
 		Title "Clear log file?"
-		Position 10,230
+		Position 10,150
 		Value TRUE
 		'Into bClearLog
 
@@ -321,11 +323,11 @@ Sub OpenDialog
 	' Add Ok and cancel buttons
 	'-------------------------------------------------
 	Control CancelButton
-		Position 205,240
+		Position 65,170
 		Width 40
 	Control Button
 		Title "Ok"
-		Position 250,240
+		Position 110,170
 		Width 40
 		Calling CheckSelection
 
@@ -558,12 +560,12 @@ Sub CheckSelection
 		Goto Response
 	End If
 
-	Alter Table sOutputName (Drop Temp)
+	Set ProgressBars Off
 
 	'-------------------------------------------------
 	' Drop the temporary column
 	'-------------------------------------------------
-	Set ProgressBars Off
+	Alter Table sOutputName (Drop Temp)
 
 	'-------------------------------------------------
 	' Pack the output table
@@ -613,8 +615,6 @@ Sub CreateBufferTable (sOutputPath As String, sOutputName As String)
 '* Routine to create a new output buffer table.
 '*************************************************
 
-	Call MyPrint("Creating output buffer table ...")
-
 	'-------------------------------------------------
 	' Replace any spaces in the output table name with
 	' underscores and remove hyphens
@@ -627,11 +627,13 @@ Sub CreateBufferTable (sOutputPath As String, sOutputName As String)
 	' already/still open and close it if it is
 	'-------------------------------------------------
 	If TableIsOpen(sOutputName) Then
-		Call MyPrint("Closing output table ...")
+		Call MyPrint("Closing old output buffer table ...")
 		Close Table sOutputName
 	End If
 
 	OnError Goto CreateError
+
+	Call MyPrint("Creating output buffer table ...")
 
 	'-------------------------------------------------
 	' Create new output table"
@@ -639,6 +641,13 @@ Sub CreateBufferTable (sOutputPath As String, sOutputName As String)
 	Dim sCmd As String
 	sCmd = "Create Table " + Chr$(34) + sOutputName + Chr$(34) + " (" + sOutColumnDefs + ", Temp Integer) file " + Chr$(34) + sOutputPath + sOutputName + ".tab" + Chr$(34)
 	+ " TYPE NATIVE Charset " + Chr$(34) + "WindowsLatin1" + Chr$(34)
+	Run Command (sCmd)
+
+	'-------------------------------------------------
+	' Add an index to the temp field to speed
+	' up queries
+	'-------------------------------------------------
+	sCmd = "Create Index On " + sOutputName + "(temp)"
 	Run Command (sCmd)
 
 	'-------------------------------------------------
@@ -675,6 +684,7 @@ Sub CreateBufferTable (sOutputPath As String, sOutputName As String)
 '	End If
 
 	Call MyPrint("Created output buffer table.")
+	Call MyPrint("")
 
 	Exit Sub
 
@@ -759,25 +769,50 @@ Sub BufferRecords
 	' open and close them if it is
 	'-------------------------------------------------
 	If TableIsOpen(sTempInput) Then
-		Call MyPrint("Closing temporary table TempInput ...")
 		Close Table sTempInput
 	End If
 
 	If TableIsOpen(sTempOutput) Then
-		Call MyPrint("Closing temporary table TempOutput ...")
 		Close Table sTempOutput
 	End If
 
 	If TableIsOpen(sTempSelect) Then
-		Call MyPrint("Closing temporary table TempSelect ...")
 		Close Table sTempSelect
 	End If
 
 	If TableIsOpen(sTempCluster) Then
-		Call MyPrint("Closing temporary table TempCluster ...")
 		Close Table sTempCluster
 	End If
 
+	'-------------------------------------------------
+	' Add a temporary unique column
+	'-------------------------------------------------
+	Call MyPrint("Adding temporary key to " + sTableName + " ...")
+	Alter Table sTableName (Add RowInd Integer)
+
+	'-------------------------------------------------
+	' Add an index to the unique column to speed
+	' up queries
+	'-------------------------------------------------
+	Dim sCmd As String
+	sCmd = "Create Index On " + sTableName + "(RowInd)"
+	Run Command (sCmd)
+
+	sCmd = "Select RowInd From " + sTableName + " Order By " + sSortOrder + " Into " + sTempInput + " NoSelect"
+	Run Command (sCmd)
+
+	'-------------------------------------------------
+	' Update the unique column in the table
+	'-------------------------------------------------
+	sCmd = "Update " + sTempInput + " Set RowInd = RowID"
+	Run Command (sCmd)
+
+	'-------------------------------------------------
+	' Save the updates
+	'-------------------------------------------------
+	sCmd = "Commit Table " + sTableName
+	Run Command (sCmd)
+	
 	'-------------------------------------------------
 	' Check if the records need to be clustered
 	'-------------------------------------------------
@@ -792,11 +827,12 @@ Sub BufferRecords
 	'-------------------------------------------------
 	If bCluster Then
 
+		Call MyPrint("Clustering features within ' + iDissolveSize + 'metres ...")
+
 		'-------------------------------------------------
 		' Create a new cluster table for the input records
 		' if they are to be dissolved
 		'-------------------------------------------------
-		Dim sCmd As String
 		sCmd = "Create Table " + Chr$(34) + sTempCluster + Chr$(34) + " (ClusterID Integer) file " + Chr$(34) + sOutputPath + "\" + sTempCluster + ".tab" + Chr$(34) + " TYPE NATIVE Charset " + Chr$(34) + "WindowsLatin1" + Chr$(34)
 		Run Command (sCmd)
 	
@@ -847,7 +883,7 @@ Sub BufferRecords
 	' Select the required columns from the input
 	' table
 	'-------------------------------------------------
-	Call MyPrint("Selecting feature from " + sTableName + " ...")
+	Call MyPrint("Selecting features from " + sTableName + " ...")
 
 	'-------------------------------------------------
 	' If the records need to be clustered (dissolved)
@@ -855,9 +891,9 @@ Sub BufferRecords
 	' cluster
 	'-------------------------------------------------
 	If bCluster Then
-		sCmd = "Select " + sColumns + ", Obj, ClusterID From " + sTableName + ", " + sTempCluster + " Where " + sTableName + ".Obj Within " + sTempCluster + ".Obj Order By ClusterID, " + sSortOrder + " Into " + sTempInput + " NoSelect"
+		sCmd = "Select " + sColumns + ", Obj, ClusterID From " + sTableName + ", " + sTempCluster + " Where " + sTableName + ".Obj Within " + sTempCluster + ".Obj Order By ClusterID, RowInd Into " + sTempInput + " NoSelect"
 	Else
-		sCmd = "Select " + sColumns + ", Obj, 0" + Chr$(34) + "ClusterID" + Chr$(34) + " From " + sTableName + " Order By " + sSortOrder + " Into " + sTempInput + " NoSelect"
+		sCmd = "Select " + sColumns + ", Obj, 0" + Chr$(34) + "ClusterID" + Chr$(34) + " From " + sTableName + " Order By RowInd Into " + sTempInput + " NoSelect"
 	End If
 	Run Command (sCmd)
 
@@ -867,7 +903,7 @@ Sub BufferRecords
 	Dim iRows As Integer
 	iRows = TableInfo(sTempInput, TAB_INFO_NROWS)
 
-	Call MyPrint("Buffering " + FormatNumber$(iRows) + " rows ...")
+	Call MyPrint("Buffering " + FormatNumber$(iRows) + " features ...")
 
 	'-------------------------------------------------
 	' Reset the column values
@@ -885,6 +921,7 @@ Sub BufferRecords
 	' Turn on FastEdit to speed up the updates
 	'-------------------------------------------------
 	Set Table sOutputName FastEdit On
+	Set Table sOutputName Undo Off
 
 	'-------------------------------------------------
 	' If any rows were selected then set the object
@@ -901,7 +938,7 @@ Sub BufferRecords
 		'-------------------------------------------------
 		Fetch First from TempInput
 
-		Dim sColumn As Alias, sColumnVal As String
+		Dim aColumn As Alias, sColumnVal As String
 		Dim bSame As Logical
 		bSame = False
 		
@@ -917,44 +954,83 @@ Sub BufferRecords
 		Do while iRow <= iRows
 
 			'-------------------------------------------------
-			' Loop through every column in the output table
-			' to check if the key columns have changed
+			' If this is not the same cluster
 			'-------------------------------------------------
-			For iColumn = 1 to UBound(aOutColumns)
-				
-				'-------------------------------------------------
-				' Set an alias for the column
-				'-------------------------------------------------
-				sColumn = "TempInput.Col" + iColumn
-				sColumnVal = sColumn
-				If Instr(1, sColumnVal, Chr$(34)) > 0 Then
-					
-					sColumnVal = StringReplace(sColumnVal, Chr$(34), "")
+			If iLastClusterId <> TempInput.ClusterID Then
 
-				End If
+				bSame = False
+
+			Else
+
+				'-------------------------------------------------
+				' Loop through every column in the output table
+				' to check if the key columns have changed
+				'-------------------------------------------------
+				For iColumn = 1 to UBound(aOutColumns)
+					
+					'-------------------------------------------------
+					' Check if the key columns have changed from the
+					' last record
+					'-------------------------------------------------
+					Do Case aOutColumns(iColumn).ColumnType
+						Case "Key"
+							'-------------------------------------------------
+							' Set an alias for the column
+							'-------------------------------------------------
+							aColumn = "TempInput.Col" + iColumn
+			
+							'-------------------------------------------------
+							' Get the value of the column (and remove double quotes)
+							'-------------------------------------------------
+							sColumnVal = aColumn
+							If Instr(1, sColumnVal, Chr$(34)) > 0 Then
+								sColumnVal = StringReplace(sColumnVal, Chr$(34), "")
+							End If
+					
+							'-------------------------------------------------
+							' Check if the value has changed
+							'-------------------------------------------------
+							If aColumnValues(iColumn).ValKey <> sColumnVal Then
+								bSame = False
+							End If
+						Case "Cluster"
+							'-------------------------------------------------
+							' Only check values if the records are not being
+							' clustered.
+							'-------------------------------------------------
+							If bCluster = False Then
+								'-------------------------------------------------
+								' Set an alias for the column
+								'-------------------------------------------------
+								aColumn = "TempInput.Col" + iColumn
 				
-				'-------------------------------------------------
-				' Check if the key columns have changed from the
-				' last record
-				'-------------------------------------------------
-				Do Case aOutColumns(iColumn).ColumnType
-					Case "Key"
-						If aColumnValues(iColumn).ValKey <> sColumnVal Then
-							bSame = False
-						End If
-					Case "Cluster"
-						If aColumnValues(iColumn).ValKey <> sColumnVal And bCluster = False Then
-							bSame = False
-						End If
-					Case Else
-				End Case
-			Next
+								'-------------------------------------------------
+								' Get the value of the column (and remove any
+								' double quotes)
+								'-------------------------------------------------
+								sColumnVal = aColumn
+								If Instr(1, sColumnVal, Chr$(34)) > 0 Then
+									sColumnVal = StringReplace(sColumnVal, Chr$(34), "")
+								End If
+						
+								'-------------------------------------------------
+								' Check if the value has changed
+								'-------------------------------------------------
+								If aColumnValues(iColumn).ValKey <> sColumnVal Then
+									bSame = False
+								End If
+							End If
+						Case Else
+					End Case
+				Next
+			
+			End If
 
 			'-------------------------------------------------
 			' If the key columns have not changed and this is
 			' the same cluster
 			'-------------------------------------------------
-			If bSame = True And iLastClusterId = TempInput.ClusterID Then
+			If bSame = True Then
 
 				'-------------------------------------------------
 				' Loop through every column in the output table
@@ -963,22 +1039,25 @@ Sub BufferRecords
 				For iColumn = 1 to UBound(aOutColumns)
 					
 					'-------------------------------------------------
-					' Set an alias for the column
-					'-------------------------------------------------
-					sColumn = "TempInput.Col" + iColumn
-					sColumnVal = sColumn
-
-					If Instr(1, sColumnVal, Chr$(34)) > 0 Then
-						
-						sColumnVal = StringReplace(sColumnVal, Chr$(34), "")
-	
-					End If
-					
-					'-------------------------------------------------
 					' Check if the range columns have changed
 					'-------------------------------------------------
 					Do Case aOutColumns(iColumn).ColumnType
 						Case "Range"
+							'-------------------------------------------------
+							' Set an alias for the column
+							'-------------------------------------------------
+							aColumn = "TempInput.Col" + iColumn
+							
+							'-------------------------------------------------
+							' Get the value of the column (and remove any
+							' double quotes)
+							'-------------------------------------------------
+							sColumnVal = aColumn
+							If Instr(1, sColumnVal, Chr$(34)) > 0 Then
+								sColumnVal = StringReplace(sColumnVal, Chr$(34), "")
+							End If
+				
+							' Check if the min or max values have changed
 							If sColumnVal < aColumnValues(iColumn).ValMin Then
 								aColumnValues(iColumn).ValMin = sColumnVal
 							End If
@@ -1028,9 +1107,9 @@ Sub BufferRecords
 									sCommonVal = TempCommon.Col1
 									sCommonVal = StringReplace(sCommonVal, Chr$(34), "")
 	
-									If TableIsOpen("TempCommon") Then
-										Close Table TempCommon
-									End If
+									'If TableIsOpen("TempCommon") Then
+									'	Close Table TempCommon
+									'End If
 	
 									sData = sData + " Col" + iColumn + " = " + Chr$(34) + sCommonVal + Chr$(34)
 								End If
@@ -1044,9 +1123,9 @@ Sub BufferRecords
 								sCommonVal = TempCommon.Col1
 								sCommonVal = StringReplace(sCommonVal, Chr$(34), "")
 
-								If TableIsOpen("TempCommon") Then
-									Close Table TempCommon
-								End If
+								'If TableIsOpen("TempCommon") Then
+								'	Close Table TempCommon
+								'End If
 
 								sData = sData + " Col" + iColumn + " = " + Chr$(34) + sCommonVal + Chr$(34)
 							Case "Range"
@@ -1096,9 +1175,16 @@ Sub BufferRecords
 					'-------------------------------------------------
 					' Set an alias for the column
 					'-------------------------------------------------
-					sColumn = "TempInput.Col" + iColumn
-					sColumnVal = sColumn
-					sColumnVal = StringReplace(sColumnVal, Chr$(34), "")
+					aColumn = "TempInput.Col" + iColumn
+
+					'-------------------------------------------------
+					' Get the value of the column (and remove any
+					' double quotes)
+					'-------------------------------------------------
+					sColumnVal = aColumn
+					If Instr(1, sColumnVal, Chr$(34)) > 0 Then
+						sColumnVal = StringReplace(sColumnVal, Chr$(34), "")
+					End If				
 	
 					'-------------------------------------------------
 					' Set the column values
@@ -1124,14 +1210,15 @@ Sub BufferRecords
 			' Copy the record into the output table as a
 			' 'Temp' object
 			'-------------------------------------------------
-			sCmd = "Select " + sColumns + ", 1 " + Chr$(34) + "Temp" + Chr$(34) + ", Obj From " + sTempInput + " Where RowID = " + iRow + " Into TempInsert"
+			sCmd = "Select " + sColumns + ", 1 " + Chr$(34) + "Temp" + Chr$(34) + ", Obj From " + sTableName + " Where RowInd = " + iRow + " Into TempInsert NoSelect"
 			Run Command (sCmd)
+
 			sCmd = "Insert Into " + sOutputName + " (" + sColumns + ", Temp, Obj) Select * From TempInsert"
 			Run Command (sCmd)
 
-			If TableIsOpen("TempInsert") Then
-				Close Table TempInsert
-			End If
+			'If TableIsOpen("TempInsert") Then
+			'	Close Table TempInsert
+			'End If
 
 			'-------------------------------------------------
 			' Fetch the next of the selected rows
@@ -1175,9 +1262,9 @@ Sub BufferRecords
 						sCommonVal = TempCommon.Col1
 						sCommonVal = StringReplace(sCommonVal, Chr$(34), "")
 
-						If TableIsOpen("TempCommon") Then
-							Close Table TempCommon
-						End If
+						'If TableIsOpen("TempCommon") Then
+						'	Close Table TempCommon
+						'End If
 
 						sData = sData + " Col" + iColumn + " = " + Chr$(34) + sCommonVal + Chr$(34)
 					End If
@@ -1191,9 +1278,9 @@ Sub BufferRecords
 					sCommonVal = TempCommon.Col1
 					sCommonVal = StringReplace(sCommonVal, Chr$(34), "")
 
-					If TableIsOpen("TempCommon") Then
-						Close Table TempCommon
-					End If
+					'If TableIsOpen("TempCommon") Then
+					'	Close Table TempCommon
+					'End If
 
 					sData = sData + " Col" + iColumn + " = " + Chr$(34) + sCommonVal + Chr$(34)
 				Case "Range"
@@ -1244,6 +1331,7 @@ Sub BufferRecords
 		' Turn off FastEdit after updates
 		'-------------------------------------------------
 		Set Table sOutputName FastEdit Off
+		Set Table sOutputName Undo On
 
 		Set ProgressBars On
 
@@ -1265,6 +1353,10 @@ CleanUp:
 		Close Table sTempSelect
 	End If
 
+	If TableIsOpen(TempCommon) Then
+		Close Table TempCommon
+	End If
+
 	'-------------------------------------------------
 	' Drop the temporary cluster table
 	'-------------------------------------------------
@@ -1284,6 +1376,23 @@ CleanUp:
 	' Unselect all records
 	'-------------------------------------------------
 	Run Menu command M_QUERY_UNSELECT
+
+	'-------------------------------------------------
+	' Drop the unique column
+	'-------------------------------------------------
+	Call MyPrint("Removing temporary key from " + sTableName + " ...")
+	Alter Table sTableName (Drop RowInd)
+
+	'-------------------------------------------------
+	' Add the table back to the top most map window
+	' (if there is one), otherwise create a new map
+	' window using the table
+	'-------------------------------------------------
+	If NumWindows() > 0 Then
+		Add Map Layer sTableName
+	Else
+		Map From sTableName
+	End If
 
 	Exit Sub
 	
@@ -1515,28 +1624,25 @@ Sub AboutBox
 	Dialog
 		Title "About Data Buffer " + sVersion
 		Width 230
-		Height 115
+		Height 105
 
 	Control StaticText
-		Title "This program will extract SQL records and/or GIS"
+		Title "This program will buffer and, optionally, consolidate"
 		Position 10,10
 	Control StaticText
-		Title "layers that intersect with partner boundary feature(s)."
+		Title "records from one to more MapInfo layers and merge the"
 		Position 10,20
 	Control StaticText
-		Title "The user can select which SQL table or GIS layers"
+		Title "results into a single new output layer."
 		Position 10,30
 	Control StaticText
-		Title "to extract and which partner boundaries to extract for."
-		Position 10,40
-	Control StaticText
 		Title "Created by Andy Foy Consulting."
-		Position 10,60
+		Position 10,50
 	Control StaticText
-		Title "Copyright© 2012-2013 GiGL, 2015 - 2016 TVERC & GiGL."
-		Position 10,70
+		Title "Copyright© 2016 TVERC."
+		Position 10,60
 	Control OKButton
-		Position 185,95
+		Position 185,85
 
 End Sub
 
