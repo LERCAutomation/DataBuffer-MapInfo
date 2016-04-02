@@ -468,8 +468,8 @@ Sub CheckSelection
 		aInTablesSelected(iInTableTot).Node = aInTablesOpen(iInTable).Node
 		aInTablesSelected(iInTableTot).TableName = aInTablesOpen(iInTable).TableName
 		aInTablesSelected(iInTableTot).Columns = aInTablesOpen(iInTable).Columns
-		aInTablesSelected(iInTableTot).SortOrder = aInTablesOpen(iInTable).SortOrder
 		aInTablesSelected(iInTableTot).WhereClause = aInTablesOpen(iInTable).WhereClause
+		aInTablesSelected(iInTableTot).SortOrder = aInTablesOpen(iInTable).SortOrder
 		aInTablesSelected(iInTableTot).BufferSize = aInTablesOpen(iInTable).BufferSize
 		aInTablesSelected(iInTableTot).DissolveSize = aInTablesOpen(iInTable).DissolveSize
 
@@ -521,13 +521,6 @@ Sub CheckSelection
 	End If
 
 	'-------------------------------------------------
-	' Remove the file extension from the output file name
-	'-------------------------------------------------
-	sOutputName = Left$(sOutputName, Len(sOutputName) - 4)
-
-	Call MyPrint("Output File = '" + sOutputFile + "'")
-
-	'-------------------------------------------------
 	' Clear the log file (if it exists)
 	'-------------------------------------------------
 	If bClearLog = True Then
@@ -541,6 +534,13 @@ Sub CheckSelection
 	Call MyPrint("Process started!")
 	Call MyPrint("----------------------------------------------------------------------")
 	Call MyPrint("")
+
+	'-------------------------------------------------
+	' Remove the file extension from the output file name
+	'-------------------------------------------------
+	sOutputName = Left$(sOutputName, Len(sOutputName) - 4)
+
+	Call MyPrint("Output File = '" + sOutputFile + "'")
 
 	'-------------------------------------------------
 	' Call the subroutine to create the new
@@ -602,6 +602,15 @@ Sub CheckSelection
 		Map From sOutputName
 	End If
 
+	'-------------------------------------------------
+	' Count the number of buffered records
+	'-------------------------------------------------
+	Dim iRows As Integer
+	iRows = TableInfo(sOutputName, TAB_INFO_NROWS)
+
+	Call MyPrint("Created a total of " + FormatNumber$(iRows) + " buffered features")
+	Call MyPrint("")
+	
 	Call MyPrint("----------------------------------------------------------------------")
 	Call MyPrint("Process completed!")
 	Call MyPrint("----------------------------------------------------------------------")
@@ -725,7 +734,7 @@ Sub ProcessTables()
 	iBufferSize = aInTablesSelected(iInTableCnt).BufferSize
 	iDissolveSize = aInTablesSelected(iInTableCnt).DissolveSize
 
-	Call MyPrint("Processing table " + sTableName + "(" + iInTableCnt + " of " + iInTableTot + ") ...")
+	Call MyPrint("Processing table " + sTableName + " (" + iInTableCnt + " of " + iInTableTot + ") ...")
 
 	'-------------------------------------------------
 	' Call the subroutine to select the records from
@@ -841,11 +850,13 @@ Sub BufferRecords
 	sCmd = "Commit Table " + sTableName
 	Run Command (sCmd)
 	
+	Call MyPrint("Buffering features to " + iBufferSize + " metres ...")
+
 	'-------------------------------------------------
 	' Check if the records need to be clustered
 	'-------------------------------------------------
 	Dim bCluster As Logical, iClusterSize As Integer
-	iClusterSize = Int(iDissolveSize) - 1
+	iClusterSize = iDissolveSize - 1
 	If iClusterSize > 0 Then
 		bCluster = True
 	End If
@@ -855,7 +866,7 @@ Sub BufferRecords
 	'-------------------------------------------------
 	If bCluster Then
 
-		Call MyPrint("Clustering features within '" + iDissolveSize + "' metres ...")
+		Call MyPrint("Clustering features within " + iDissolveSize + " metres ...")
 
 		'-------------------------------------------------
 		' Create a new cluster table for the input records
@@ -920,12 +931,6 @@ Sub BufferRecords
 	End If
 
 	'-------------------------------------------------
-	' Select the required columns from the input
-	' table
-	'-------------------------------------------------
-	Call MyPrint("Selecting features from " + sTableName + " ...")
-
-	'-------------------------------------------------
 	' If the records need to be clustered (dissolved)
 	' then include the cluster ID from the overlapping
 	' cluster
@@ -949,7 +954,13 @@ Sub BufferRecords
 	Dim iRows As Integer
 	iRows = TableInfo(sTempInput, TAB_INFO_NROWS)
 
-	Call MyPrint("Buffering " + FormatNumber$(iRows) + " features ...")
+	Call MyPrint("Buffering " + FormatNumber$(iRows) + " features ...")	
+	
+	'-------------------------------------------------
+	' Reset the output counter
+	'-------------------------------------------------
+	Dim iOutCount As Integer
+	iOutCount = 0
 
 	'-------------------------------------------------
 	' Reset the column values
@@ -1191,15 +1202,15 @@ Sub BufferRecords
 					sData = sData + " Temp = 0"
 						
 					'-------------------------------------------------
-					' Create a buffered object or objects from the
-					' 'Temp' objects
+					' Create a buffered object from the 'Temp' objects
 					'-------------------------------------------------
-					If bCluster Then
-						sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + sData
-					Else
-						sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + sData
-					End If
+					sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + sData
 					Run Command (sCmd)
+
+					'-------------------------------------------------
+					' Increment the output counter
+					'-------------------------------------------------
+					iOutCount = iOutCount + 1
 
 					'-------------------------------------------------
 					' Delete all the original 'Temp' objects
@@ -1346,15 +1357,15 @@ Sub BufferRecords
 		sData = sData + " Temp = 0"
 					
 		'-------------------------------------------------
-		' Create a buffered object or objects from the
-		' 'Temp' objects
+		' Create a buffered object from the 'Temp' objects
 		'-------------------------------------------------
-		If bCluster Then
-			sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + sData
-		Else
-			sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + sData
-		End If
+		sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + sData
 		Run Command (sCmd)
+		
+		'-------------------------------------------------
+		' Increment the output counter
+		'-------------------------------------------------
+		iOutCount = iOutCount + 1
 
 		'-------------------------------------------------
 		' Delete all the original 'Temp' objects
@@ -1380,6 +1391,8 @@ Sub BufferRecords
 		Set Table sOutputName Undo On
 
 		Set ProgressBars On
+
+		Call MyPrint("Created " + FormatNumber$(iOutCount) + " buffered features")
 
 	End If
 
