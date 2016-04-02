@@ -91,6 +91,7 @@ Declare Sub CreateBufferTable
 Declare Sub BufferRecords
 	(sTableName As String,
 	sColumns As String,
+	sWhereClause As String,
 	sSortOrder As String,
 	iBufferSize As Integer,
 	iDissolveSize As Integer)
@@ -246,6 +247,7 @@ Type InTable
 	Node As String
 	TableName As String
 	Columns As String
+	WhereClause As String
 	SortOrder As String
 	BufferSize As Integer
 	DissolveSize As Integer
@@ -275,6 +277,7 @@ Global sLogFileName As String
 Global sDefaultPath As String
 Global sOutTableName As String
 Global sOutColumnDefs As String
+Global sOutColumns As String
 Global sCoordSys As String
 
 Global aInTables(99) As InTable

@@ -20,7 +20,7 @@
 '* along with DataBuffer.  If not, see <http://www.gnu.org/licenses/>.
 '*
 '***************************************************************
-'* DataBuffer v1.03
+'* DataBuffer v1.04
 '*
 '* Buffers and (optionally) consolidates records from one or more
 '* MapInfo GIS layers and merges the results into a new output
@@ -28,7 +28,11 @@
 '*
 '*
 '* Created:			Andy Foy - February 2016
-'* Last revised:	Andy Foy - March 2016
+'* Last revised:	Andy Foy - April 2016
+'*
+'* *****************  Version 1.04  *****************
+'* Author: Andy Foy		Date: 01/04/2016
+'* A. Include where clause for input tables.
 '*
 '* *****************  Version 1.03  *****************
 '* Author: Andy Foy		Date: 17/03/2016
@@ -55,7 +59,7 @@ Sub Main
 	'-------------------------------------------------
 	' Set the version number
 	'-------------------------------------------------
-	sVersion = "1.03"
+	sVersion = "1.04"
 
 	'-------------------------------------------------
 	' Create a new menu
@@ -155,6 +159,7 @@ Sub GetDefaultValues
 					' Loop through all the attributes in the node list
 					' storing the values in an array
 					'-------------------------------------------------
+					Redim aInTables(99)
 					Dim i As Integer
 					i = 0
 					Do while hXMLFilesNode
@@ -169,6 +174,9 @@ Sub GetDefaultValues
 
 						' The columns to read from the input table
 						aInTables(i).Columns = GetSingleNodeValue(hXMLFilesNode, "Columns")
+
+						' The where clause to apply to the input table
+						aInTables(i).WhereClause = GetSingleNodeValue(hXMLFilesNode, "WhereClause")
 
 						' The column sort order to read the input table
 						aInTables(i).SortOrder = GetSingleNodeValue(hXMLFilesNode, "SortOrder")
@@ -211,13 +219,19 @@ Sub GetDefaultValues
 					' Loop through all the attributes in the node list
 					' storing the values in an array
 					'-------------------------------------------------
+					Redim aOutColumns(99)
 					i = 0
+					sOutColumns = ""
 					Do while hXMLFilesNode
 						
 						i = i + 1
 
 						' Name of the column node
 						aOutColumns(i).Node = GetNodeName(hXMLFilesNode)
+						If i > 1 Then
+							sOutColumns = sOutColumns + ", "
+						End If
+						sOutColumns = sOutColumns + GetNodeName(hXMLFilesNode)
 
 						' Name of the column to be output to the new buffered layer
 						aOutColumns(i).ColumnName = GetSingleNodeValue(hXMLFilesNode, "ColumnName")
@@ -366,6 +380,7 @@ Sub DialogSetup
 	'-------------------------------------------------
 	Dim i, j As Integer
 	Dim aOpenTables(99) As String
+	Redim aOpenTables(99)
 	j = 0
 	For i = 1 to UBound(aInTables)
 
@@ -378,6 +393,7 @@ Sub DialogSetup
 			aInTablesOpen(j).Node = aInTables(i).Node
 			aInTablesOpen(j).TableName = aInTables(i).TableName
 			aInTablesOpen(j).Columns = aInTables(i).Columns
+			aInTablesOpen(j).WhereClause = aInTables(i).WhereClause
 			aInTablesOpen(j).SortOrder = aInTables(i).SortOrder
 			aInTablesOpen(j).BufferSize = aInTables(i).BufferSize
 			aInTablesOpen(j).DissolveSize = aInTables(i).DissolveSize
@@ -453,6 +469,7 @@ Sub CheckSelection
 		aInTablesSelected(iInTableTot).TableName = aInTablesOpen(iInTable).TableName
 		aInTablesSelected(iInTableTot).Columns = aInTablesOpen(iInTable).Columns
 		aInTablesSelected(iInTableTot).SortOrder = aInTablesOpen(iInTable).SortOrder
+		aInTablesSelected(iInTableTot).WhereClause = aInTablesOpen(iInTable).WhereClause
 		aInTablesSelected(iInTableTot).BufferSize = aInTablesOpen(iInTable).BufferSize
 		aInTablesSelected(iInTableTot).DissolveSize = aInTablesOpen(iInTable).DissolveSize
 
@@ -698,11 +715,12 @@ Sub ProcessTables()
 '* Process the input table
 '***************************************************************
 
-	Dim sNodeName, sTableName, sColumns, sSortOrder As String
+	Dim sNodeName, sTableName, sColumns, sWhereClause, sSortOrder As String
 	Dim iBufferSize, iDissolveSize As Integer
 	sNodeName = aInTablesSelected(iInTableCnt).Node
 	sTableName = aInTablesSelected(iInTableCnt).TableName
 	sColumns = aInTablesSelected(iInTableCnt).Columns
+	sWhereClause = aInTablesSelected(iInTableCnt).WhereClause
 	sSortOrder = aInTablesSelected(iInTableCnt).SortOrder
 	iBufferSize = aInTablesSelected(iInTableCnt).BufferSize
 	iDissolveSize = aInTablesSelected(iInTableCnt).DissolveSize
@@ -713,7 +731,7 @@ Sub ProcessTables()
 	' Call the subroutine to select the records from
 	' the selected table for the selected partner
 	'-------------------------------------------------
-	Call BufferRecords(sTableName, sColumns, sSortOrder, iBufferSize, iDissolveSize)
+	Call BufferRecords(sTableName, sColumns, sWhereClause, sSortOrder, iBufferSize, iDissolveSize)
 
 	Call MyPrint("Completed process " + iInTableCnt + " of " + iInTableTot + ".")
 	Call MyPrint("")
@@ -739,6 +757,7 @@ End Sub
 Sub BufferRecords
 	(sTableName As String,
 	sColumns As String,
+	sWhereClause As String,
 	sSortOrder As String,
 	iBufferSize As Integer,
 	iDissolveSize As Integer)
@@ -785,25 +804,34 @@ Sub BufferRecords
 	End If
 
 	'-------------------------------------------------
-	' Add a temporary unique column
+	' If a temporary unique column doesn't already
+	' exist
 	'-------------------------------------------------
-	Call MyPrint("Adding temporary key to " + sTableName + " ...")
-	Alter Table sTableName (Add RowInd Integer)
+	If Not ColumnExists(sTableName, "RowInd") Then
 
-	'-------------------------------------------------
-	' Add an index to the unique column to speed
-	' up queries
-	'-------------------------------------------------
-	Dim sCmd As String
-	sCmd = "Create Index On " + sTableName + "(RowInd)"
-	Run Command (sCmd)
+		Call MyPrint("Adding temporary key to " + sTableName + " ...")
 
-	sCmd = "Select RowInd From " + sTableName + " Order By " + sSortOrder + " Into " + sTempInput + " NoSelect"
-	Run Command (sCmd)
+		'-------------------------------------------------
+		' Add a temporary unique column
+		'-------------------------------------------------
+		Alter Table sTableName (Add RowInd Integer)
+
+		'-------------------------------------------------
+		' Add an index to the unique column to speed
+		' up queries
+		'-------------------------------------------------
+		Dim sCmd As String
+		sCmd = "Create Index On " + sTableName + "(RowInd)"
+		Run Command (sCmd)
+
+	End If
 
 	'-------------------------------------------------
 	' Update the unique column in the table
 	'-------------------------------------------------
+	sCmd = "Select RowInd From " + sTableName + " Order By " + sSortOrder + " Into " + sTempInput + " NoSelect"
+	Run Command (sCmd)
+
 	sCmd = "Update " + sTempInput + " Set RowInd = RowID"
 	Run Command (sCmd)
 
@@ -817,7 +845,7 @@ Sub BufferRecords
 	' Check if the records need to be clustered
 	'-------------------------------------------------
 	Dim bCluster As Logical, iClusterSize As Integer
-	iClusterSize = (Int(iDissolveSize) / 2) - 1
+	iClusterSize = Int(iDissolveSize) - 1
 	If iClusterSize > 0 Then
 		bCluster = True
 	End If
@@ -827,7 +855,7 @@ Sub BufferRecords
 	'-------------------------------------------------
 	If bCluster Then
 
-		Call MyPrint("Clustering features within ' + iDissolveSize + 'metres ...")
+		Call MyPrint("Clustering features within '" + iDissolveSize + "' metres ...")
 
 		'-------------------------------------------------
 		' Create a new cluster table for the input records
@@ -843,6 +871,12 @@ Sub BufferRecords
 		Run Command (sCmd)
 	
 		'-------------------------------------------------
+		' Turn on FastEdit to speed up the updates
+		'-------------------------------------------------
+		Set Table sTempCluster FastEdit On
+		Set Table sTempCluster Undo Off
+
+		'-------------------------------------------------
 		' Create a single clustered object
 		'-------------------------------------------------
 		sCmd = "Create Object As Buffer From " + sTableName + " Width " + iClusterSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sTempCluster
@@ -857,7 +891,7 @@ Sub BufferRecords
 		'-------------------------------------------------
 		' Update the ClusterId in the table
 		'-------------------------------------------------
-		sCmd = "Update " + sTempCluster + " Set ClusterID = RowID"
+		sCmd = "Update " + sTempCluster + " Set ClusterID = RowID - 1"
 		Run Command (sCmd)
 	
 		'-------------------------------------------------
@@ -866,6 +900,12 @@ Sub BufferRecords
 		sCmd = "Commit Table " + sTempCluster
 		Run Command (sCmd)
 		
+		'-------------------------------------------------
+		' Turn off FastEdit after updates
+		'-------------------------------------------------
+		Set Table sTempCluster FastEdit Off
+		Set Table sTempCluster Undo On
+
 		'-------------------------------------------------
 		' Close the latest query table
 		'-------------------------------------------------
@@ -891,9 +931,15 @@ Sub BufferRecords
 	' cluster
 	'-------------------------------------------------
 	If bCluster Then
-		sCmd = "Select " + sColumns + ", Obj, ClusterID From " + sTableName + ", " + sTempCluster + " Where " + sTableName + ".Obj Within " + sTempCluster + ".Obj Order By ClusterID, RowInd Into " + sTempInput + " NoSelect"
+		If sWhereClause <> "" Then
+			sWhereClause = " And " + sWhereClause
+		End If
+		sCmd = "Select " + sColumns + ", " + sTableName + ".Obj, ClusterID, RowInd From " + sTableName + ", " + sTempCluster + " Where " + sTableName + ".Obj Within " + sTempCluster + ".Obj" + sWhereClause + " Order By ClusterID, RowInd Into " + sTempInput + " NoSelect"
 	Else
-		sCmd = "Select " + sColumns + ", Obj, 0" + Chr$(34) + "ClusterID" + Chr$(34) + " From " + sTableName + " Order By RowInd Into " + sTempInput + " NoSelect"
+		If sWhereClause <> "" Then
+			sWhereClause = " Where " + sWhereClause
+		End If
+		sCmd = "Select " + sColumns + ", Obj, 0" + Chr$(34) + "ClusterID" + Chr$(34) + ", RowInd From " + sTableName + sWhereClause + " Order By RowInd Into " + sTempInput + " NoSelect"
 	End If
 	Run Command (sCmd)
 
@@ -1210,10 +1256,10 @@ Sub BufferRecords
 			' Copy the record into the output table as a
 			' 'Temp' object
 			'-------------------------------------------------
-			sCmd = "Select " + sColumns + ", 1 " + Chr$(34) + "Temp" + Chr$(34) + ", Obj From " + sTableName + " Where RowInd = " + iRow + " Into TempInsert NoSelect"
+			sCmd = "Select " + sColumns + ", 1 " + Chr$(34) + "Temp" + Chr$(34) + ", Obj From " + sTableName + " Where RowInd = " + TempInput.RowInd + " Into TempInsert NoSelect"
 			Run Command (sCmd)
 
-			sCmd = "Insert Into " + sOutputName + " (" + sColumns + ", Temp, Obj) Select * From TempInsert"
+			sCmd = "Insert Into " + sOutputName + " (" + sOutColumns + ", Temp, Obj) Select * From TempInsert"
 			Run Command (sCmd)
 
 			'If TableIsOpen("TempInsert") Then
@@ -1338,6 +1384,9 @@ Sub BufferRecords
 	End If
 
 CleanUp:
+
+	OnError Goto 0
+	
 	'-------------------------------------------------
 	' Close the temporary tables
 	'-------------------------------------------------
@@ -1351,6 +1400,10 @@ CleanUp:
 
 	If TableIsOpen(sTempSelect) Then
 		Close Table sTempSelect
+	End If
+
+	If TableIsOpen(TempInsert) Then
+		Close Table TempInsert
 	End If
 
 	If TableIsOpen(TempCommon) Then
@@ -1380,8 +1433,10 @@ CleanUp:
 	'-------------------------------------------------
 	' Drop the unique column
 	'-------------------------------------------------
-	Call MyPrint("Removing temporary key from " + sTableName + " ...")
-	Alter Table sTableName (Drop RowInd)
+	If ColumnExists(sTableName, "RowInd") Then
+		Call MyPrint("Removing temporary key from " + sTableName + " ...")
+		Alter Table sTableName (Drop RowInd)
+	End If
 
 	'-------------------------------------------------
 	' Add the table back to the top most map window
@@ -1393,13 +1448,13 @@ CleanUp:
 	Else
 		Map From sTableName
 	End If
-
+		
 	Exit Sub
 	
 ErrorTrap:
 	Note str$(Err()) + ": " + Error$()
 	Call MyPrint(str$(Err()) + ": " + Error$())
-	Exit Sub
+	Goto CleanUp
 
 End Sub
 
