@@ -1415,11 +1415,11 @@ CleanUp:
 		Close Table sTempSelect
 	End If
 
-	If TableIsOpen(TempInsert) Then
+	If TableIsOpen("TempInsert") Then
 		Close Table TempInsert
 	End If
 
-	If TableIsOpen(TempCommon) Then
+	If TableIsOpen("TempCommon") Then
 		Close Table TempCommon
 	End If
 
