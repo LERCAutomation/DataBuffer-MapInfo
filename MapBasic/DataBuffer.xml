@@ -13,11 +13,12 @@ MapBasic tool.
 The 'configuration' node is the 'root' node and signifies the start of the
 contents of the configuration file.
 
-The 'DataExtractor' node contains all of the entries relating to the
+The 'DataBuffer' node contains all of the entries relating to the
 MapBasic tool variables.
 
-Each entry relates to a file, folder, table name, column name or SQL statement
-used by the MapBasic tool to select and export data for the GiGL partners.
+Each entry relates to a file, folder, table name, column name or variable
+used by the MapBasic tool to buffer and combine data for the buffered species
+layers.
 -->
 
 <configuration>
@@ -32,11 +33,6 @@ used by the MapBasic tool to select and export data for the GiGL partners.
   <DefaultPath>
 	<value>D:\Andy\TVERC\Data Buffer</value>
   </DefaultPath>
-
-  <!-- The name for the new GIS layer to be created -->
-  <OutTableName>
-	<Value>TVERC Buffered Species</Value>
-  </OutTableName>
 
   <OutColumnDefs>
 	<Value>CommonName Char(100), SciName Char(100), RecYear Char(11), GridRef Char(12), Location Char(100), Design Char(100), Version Char(100), Origin Char(100), Provider Char(100)</Value>
@@ -56,6 +52,9 @@ used by the MapBasic tool to select and export data for the GiGL partners.
 		<Columns>
 			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider</Value>
 		</Columns>
+		<WhereClause>
+			<value>RecYear &gt; (Year(CurDateTime()) - 11)</value>
+		</WhereClause>
 		<SortOrder>
 			<Value>SciName, GridRef, Location</Value>
 		</SortOrder>
@@ -73,6 +72,9 @@ used by the MapBasic tool to select and export data for the GiGL partners.
 		<Columns>
 			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider</Value>
 		</Columns>
+		<WhereClause>
+			<value>RecYear &gt; (Year(CurDateTime()) - 11)</value>
+		</WhereClause>
 		<SortOrder>
 			<Value>SciName, GridRef, Location</Value>
 		</SortOrder>
