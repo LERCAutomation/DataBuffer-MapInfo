@@ -71,15 +71,16 @@ Define MIXmlNode Integer
 Define MIXmlNodeList Integer
 Define MIXmlNamedNodeMap Integer
 Define MIXMLSchemaCollection Integer
-Define MIXML_LIB_NAME "GmlXlat.dll"
-Define MIWEBSERVICES_LIB_NAME "GmlXlat.dll"
-'Define MIXML_LIB_NAME "MapInfo.XmlUtil.dll"
-'Define MIWEBSERVICES_LIB_NAME "MapInfo.XmlUtil.dll"
+'Define MIXML_LIB_NAME "GmlXlat.dll"
+'Define MIWEBSERVICES_LIB_NAME "GmlXlat.dll"
+Define MIXML_LIB_NAME "MapInfo.XmlUtil.dll"
+Define MIWEBSERVICES_LIB_NAME "MapInfo.XmlUtil.dll"
 
 '-------------------------------------------------
 ' Declare the subroutines
 '-------------------------------------------------
 Declare Sub Main
+Declare Sub GetToolTitle
 Declare Sub GetDefaultValues
 Declare Sub OpenDialog
 Declare Sub DialogSetup
@@ -272,6 +273,7 @@ End Type
 '-------------------------------------------------
 Global sVersion As String
 Global sUserId As String
+Global sToolTitle As String
 
 Global sLogFileName As String
 Global sDefaultPath As String

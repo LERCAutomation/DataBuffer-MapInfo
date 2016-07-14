@@ -20,7 +20,7 @@
 '* along with DataBuffer.  If not, see <http://www.gnu.org/licenses/>.
 '*
 '***************************************************************
-'* DataBuffer v1.04
+'* DataBuffer v1.0.6
 '*
 '* Buffers and (optionally) consolidates records from one or more
 '* MapInfo GIS layers and merges the results into a new output
@@ -28,7 +28,16 @@
 '*
 '*
 '* Created:			Andy Foy - February 2016
-'* Last revised:	Andy Foy - April 2016
+'* Last revised:	Andy Foy - July 2016
+'*
+'* *****************  Version 1.0.6  ***************
+'* Author: Andy Foy		Date: 14/07/2016
+'* A. Enable separate instances for tool to run under
+'*    different names in Tool menu.
+'*
+'* *****************  Version 1.0.5  ****************
+'* Author: Andy Foy		Date: 30/05/2016
+'* A. Change version number to 3 parts.
 '*
 '* *****************  Version 1.04  *****************
 '* Author: Andy Foy		Date: 01/04/2016
@@ -59,23 +68,108 @@ Sub Main
 	'-------------------------------------------------
 	' Set the version number
 	'-------------------------------------------------
-	sVersion = "1.04"
+	sVersion = "1.0.6"
+
+	'-------------------------------------------------
+	' Get the title for the Tool menu
+	'-------------------------------------------------
+	Call GetToolTitle
 
 	'-------------------------------------------------
 	' Create a new menu
 	'-------------------------------------------------
-	Create Menu "&Data Buffer" As
-	   "&Run Data Buffer ..." Calling OpenDialog,
+	Create Menu "&" & sToolTitle As
+	   "&Run " & sToolTitle & " ..." Calling OpenDialog,
 	   "(-",
-	   "&About Data Buffer ..." Calling AboutBox,
-	   "E&xit Data Buffer" Calling egsit
+	   "&About " & sToolTitle & " ..." Calling AboutBox,
+	   "E&xit " & sToolTitle Calling egsit
 
 	'-------------------------------------------------
 	' Add the new menu item to the Tools menu
 	'-------------------------------------------------
 	Alter Menu "Tools" Add
-		"Data Buffer" As "Data Buffer"
+		sToolTitle As sToolTitle
 
+	Exit Sub
+
+End Sub
+
+Sub GetToolTitle
+'***************************************************************
+'* Retrieve the tool title to use from the config file
+'* which is a XML document
+'***************************************************************
+
+	Dim bParseError As SmallInt
+	Dim hXMLDoc As MIXmlDocument
+	Dim hXMLRoot As MIXmlNode
+	Dim hXMLNode As MIXmlNode
+
+	OnError Goto GetTitleError
+
+	' Set the default Tool menu title
+	sToolTitle = "Data Buffer"
+
+	'-------------------------------------------------
+	' Create a document handle
+	'-------------------------------------------------
+	hXMLDoc = MIXmlDocumentCreate()
+	If hXMLDoc Then
+
+		'-------------------------------------------------
+		' Load the document into the document handle
+		'-------------------------------------------------
+		Dim iXMLLoad As SmallInt
+		iXMLLoad = MIXmlDocumentLoad(hXMLDoc, ApplicationDirectory$() + "DataBuffer.xml", bParseError, FALSE, FALSE)
+		if iXMLLoad > 0 Then
+
+			'-------------------------------------------------
+			' Get a handle on the XML root node of the document
+			'-------------------------------------------------
+			hXMLRoot = MIXmlDocumentGetRootNode(hXMLDoc)
+			If hXMLRoot Then
+
+				'-------------------------------------------------
+				' Get a handle on the DataBuffer node
+				'-------------------------------------------------
+				hXMLNode = MIXmlSelectSingleNode(hXMLRoot, "DataBuffer")
+	          	If hXMLNode Then
+	
+					'-------------------------------------------------
+					' Load the default values from the child nodes
+					' under the DataBuffer node
+					'-------------------------------------------------
+					' Title for adding the program to the Tool menu
+					Dim sTitle As String
+					sTitle = GetSingleNodeValue(hXMLNode, "ToolTitle")
+					If sTitle <> "" Then
+						sToolTitle = sTitle
+					End If
+
+				End If
+
+			End If
+
+		Else
+
+			Goto GetTitleError
+
+		End If
+
+	End If
+
+CleanUp:
+	'-------------------------------------------------
+	' Destroy the handles
+	'-------------------------------------------------
+	If hXMLNode Then Call MIXmlNodeDestroy(hXMLNode) End If
+	If hXMLRoot Then Call MIXmlNodeDestroy(hXMLRoot) End If
+	If hXMLDoc Then Call MIXmlDocumentDestroy(hXMLDoc) End If
+
+	Exit Sub
+
+GetTitleError:
+	Note "Unable to get tool title from XML config file.  Using default title 'Data Buffer'."
 	Exit Sub
 
 End Sub
@@ -253,7 +347,7 @@ Sub GetDefaultValues
 
 		Else
 
-			Note "Error : " + MIGetErrorMessage()
+			Note "Error opening XML config file 'DataBuffer.xml'."
 
 		End If
 
@@ -274,7 +368,7 @@ CleanUp:
 	Exit Sub
 
 GetVariablesError:
-	Note str$(Err()) + ": " + Error$()
+	Note "Error: " + str$(Err()) + ": " + Error$()
 	Exit Sub
 
 End Sub
