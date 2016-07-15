@@ -40,7 +40,7 @@ layers.
   </DefaultPath>
 
   <OutColumnDefs>
-	<Value>CommonName Char(100), SciName Char(100), RecYear Char(11), GridRef Char(12), Location Char(100), Design Char(100), Version Char(100), Origin Char(100), Provider Char(100)</Value>
+	<Value>CommonName Char(100), SciName Char(100), RecYear Char(11), GridRef Char(12), Location Char(100), Design Char(100), Version Char(100), Origin Char(100), Provider Char(100), Copyright Char(100)</Value>
   </OutColumnDefs>
 
   <!-- The coordinate system for mapping tables -->
@@ -55,7 +55,7 @@ layers.
 			<Value>Badgers</Value>
 		</TableName>
 		<Columns>
-			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider</Value>
+			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider, "Provided by TVERC - for internal use only. No part of this information can be distributed or published without permission. Contains copyrighted and sensitive information" "Copyright"</Value>
 		</Columns>
 		<WhereClause>
 			<value>RecYear &gt; (Year(CurDateTime()) - 11)</value>
@@ -70,12 +70,52 @@ layers.
 			<Value>0</Value>
 		</DissolveSize>
 	</Badgers>
+	<BarnOwls>
+		<TableName>
+			<Value>Barn_Owls</Value>
+		</TableName>
+		<Columns>
+			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider, "Provided by TVERC - for internal use only. No part of this information can be distributed or published without permission. Contains copyrighted and sensitive information" "Copyright"</Value>
+		</Columns>
+		<WhereClause>
+			<value>RecYear &gt; (Year(CurDateTime()) - 11)</value>
+		</WhereClause>
+		<SortOrder>
+			<Value>SciName, GridRef, Location</Value>
+		</SortOrder>
+		<BufferSize>
+			<Value>100</Value>
+		</BufferSize>
+		<DissolveSize>
+			<Value>0</Value>
+		</DissolveSize>
+	</BarnOwls>
+	<Bats>
+		<TableName>
+			<Value>Bats</Value>
+		</TableName>
+		<Columns>
+			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider, "Provided by TVERC - for internal use only. No part of this information can be distributed or published without permission. Contains copyrighted and sensitive information" "Copyright"</Value>
+		</Columns>
+		<WhereClause>
+			<value>RecYear &gt; (Year(CurDateTime()) - 11)</value>
+		</WhereClause>
+		<SortOrder>
+			<Value>SciName, GridRef, Location</Value>
+		</SortOrder>
+		<BufferSize>
+			<Value>100</Value>
+		</BufferSize>
+		<DissolveSize>
+			<Value>0</Value>
+		</DissolveSize>
+	</Bats>
 	<Dormice>
 		<TableName>
 			<Value>Dormice</Value>
 		</TableName>
 		<Columns>
-			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider</Value>
+			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider, "Provided by TVERC - for internal use only. No part of this information can be distributed or published without permission. Contains copyrighted and sensitive information" "Copyright"</Value>
 		</Columns>
 		<WhereClause>
 			<value>RecYear &gt; (Year(CurDateTime()) - 11)</value>
@@ -90,6 +130,66 @@ layers.
 			<Value>100</Value>
 		</DissolveSize>
 	</Dormice>
+	<GCNs>
+		<TableName>
+			<Value>GCNs</Value>
+		</TableName>
+		<Columns>
+			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider, "Provided by TVERC - for internal use only. No part of this information can be distributed or published without permission. Contains copyrighted and sensitive information" "Copyright"</Value>
+		</Columns>
+		<WhereClause>
+			<value>RecYear &gt; (Year(CurDateTime()) - 11)</value>
+		</WhereClause>
+		<SortOrder>
+			<Value>SciName, GridRef, Location</Value>
+		</SortOrder>
+		<BufferSize>
+			<Value>100</Value>
+		</BufferSize>
+		<DissolveSize>
+			<Value>0</Value>
+		</DissolveSize>
+	</GCNs>
+	<WaterVoles>
+		<TableName>
+			<Value>Water_Voles</Value>
+		</TableName>
+		<Columns>
+			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider, "Provided by TVERC - for internal use only. No part of this information can be distributed or published without permission. Contains copyrighted and sensitive information" "Copyright"</Value>
+		</Columns>
+		<WhereClause>
+			<value>RecYear &gt; (Year(CurDateTime()) - 11)</value>
+		</WhereClause>
+		<SortOrder>
+			<Value>SciName, GridRef, Location</Value>
+		</SortOrder>
+		<BufferSize>
+			<Value>20</Value>
+		</BufferSize>
+		<DissolveSize>
+			<Value>20</Value>
+		</DissolveSize>
+	</WaterVoles>
+	<WaterVolesRivers>
+		<TableName>
+			<Value>Water_Voles_Rivers</Value>
+		</TableName>
+		<Columns>
+			<Value>Common_Name "CommonName", Scientific_Name "SciName", Year "RecYear", GridRef, Location, UK_Legislation + ", " + Priority_NERC_S41 "Design", Version_Date "Version", Data_Origin "Origin", "TVERC" "Provider", "Provided by TVERC - for internal use only. No part of this information can be distributed or published without permission. Contains copyrighted and sensitive information" "Copyright"</Value>
+		</Columns>
+		<WhereClause>
+			<value>Year &gt; Str$(Year(CurDateTime()) - 11)</value>
+		</WhereClause>
+		<SortOrder>
+			<Value>Scientific_Name, GridRef</Value>
+		</SortOrder>
+		<BufferSize>
+			<Value>10</Value>
+		</BufferSize>
+		<DissolveSize>
+			<Value>10</Value>
+		</DissolveSize>
+	</WaterVolesRivers>
   </InTables>
 
   <!-- The details of the new GIS layer to be created -->
@@ -168,6 +268,14 @@ layers.
 				<value>First</value>
 			</ColumnType>
 		</Col9>
+		<Col10>
+			<ColumnName>
+				<value>Copyright</value>
+			</ColumnName>
+			<ColumnType>
+				<value>First</value>
+			</ColumnType>
+		</Col10>
 	</Columns>
 
 	<!-- The symbology to apply to the new GIS layer -->
