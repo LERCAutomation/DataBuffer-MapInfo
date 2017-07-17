@@ -39,15 +39,6 @@ layers.
 	<value>D:\Andy\TVERC\Data Buffer</value>
   </DefaultPath>
 
-  <OutColumnDefs>
-	<Value>CommonName Char(100), SciName Char(100), RecYear Char(11), GridRef Char(12), Location Char(100), Design Char(100), Version Char(100), Origin Char(100), Provider Char(100), Copyright Char(100)</Value>
-  </OutColumnDefs>
-
-  <!-- The coordinate system for mapping tables -->
-  <CoordinateSystem>
-	<value>Earth Projection 8, 79, "m", -2, 49, 0.9996012717, 400000, -100000</value>
-  </CoordinateSystem>
-  
   <!-- The names and local names of the tables to be processed -->
   <InTables>
 	<Badgers>
@@ -55,7 +46,7 @@ layers.
 			<Value>Badgers</Value>
 		</TableName>
 		<Columns>
-			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider, "Provided by TVERC - for internal use only. No part of this information can be distributed or published without permission. Contains copyrighted and sensitive information" "Copyright"</Value>
+			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, RecYear "FirstYear", RecYear "LastYear", RecYear "RecCount"</Value>
 		</Columns>
 		<WhereClause>
 			<value>RecYear &gt; (Year(CurDateTime()) - 11)</value>
@@ -75,7 +66,7 @@ layers.
 			<Value>Barn_Owls</Value>
 		</TableName>
 		<Columns>
-			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider, "Provided by TVERC - for internal use only. No part of this information can be distributed or published without permission. Contains copyrighted and sensitive information" "Copyright"</Value>
+			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, RecYear "FirstYear", RecYear "LastYear", RecYear "RecCount"</Value>
 		</Columns>
 		<WhereClause>
 			<value>RecYear &gt; (Year(CurDateTime()) - 11)</value>
@@ -95,7 +86,7 @@ layers.
 			<Value>Bats</Value>
 		</TableName>
 		<Columns>
-			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider, "Provided by TVERC - for internal use only. No part of this information can be distributed or published without permission. Contains copyrighted and sensitive information" "Copyright"</Value>
+			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, RecYear "FirstYear", RecYear "LastYear", RecYear "RecCount"</Value>
 		</Columns>
 		<WhereClause>
 			<value>RecYear &gt; (Year(CurDateTime()) - 11)</value>
@@ -115,7 +106,7 @@ layers.
 			<Value>Dormice</Value>
 		</TableName>
 		<Columns>
-			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider, "Provided by TVERC - for internal use only. No part of this information can be distributed or published without permission. Contains copyrighted and sensitive information" "Copyright"</Value>
+			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, RecYear "FirstYear", RecYear "LastYear", RecYear "RecCount"</Value>
 		</Columns>
 		<WhereClause>
 			<value>RecYear &gt; (Year(CurDateTime()) - 11)</value>
@@ -135,7 +126,7 @@ layers.
 			<Value>GCNs</Value>
 		</TableName>
 		<Columns>
-			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider, "Provided by TVERC - for internal use only. No part of this information can be distributed or published without permission. Contains copyrighted and sensitive information" "Copyright"</Value>
+			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, RecYear "FirstYear", RecYear "LastYear", RecYear "RecCount"</Value>
 		</Columns>
 		<WhereClause>
 			<value>RecYear &gt; (Year(CurDateTime()) - 11)</value>
@@ -155,7 +146,7 @@ layers.
 			<Value>Water_Voles</Value>
 		</TableName>
 		<Columns>
-			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, Version, Origin, Provider, "Provided by TVERC - for internal use only. No part of this information can be distributed or published without permission. Contains copyrighted and sensitive information" "Copyright"</Value>
+			<Value>CommonName, SciName, RecYear, GridRef, Location, Design, RecYear "FirstYear", RecYear "LastYear", RecYear "RecCount"</Value>
 		</Columns>
 		<WhereClause>
 			<value>RecYear &gt; (Year(CurDateTime()) - 11)</value>
@@ -170,30 +161,21 @@ layers.
 			<Value>20</Value>
 		</DissolveSize>
 	</WaterVoles>
-	<WaterVolesRivers>
-		<TableName>
-			<Value>Water_Voles_Rivers</Value>
-		</TableName>
-		<Columns>
-			<Value>Common_Name "CommonName", Scientific_Name "SciName", Year "RecYear", GridRef, Location, UK_Legislation + ", " + Priority_NERC_S41 "Design", Version_Date "Version", Data_Origin "Origin", "TVERC" "Provider", "Provided by TVERC - for internal use only. No part of this information can be distributed or published without permission. Contains copyrighted and sensitive information" "Copyright"</Value>
-		</Columns>
-		<WhereClause>
-			<value>Year &gt; Str$(Year(CurDateTime()) - 11)</value>
-		</WhereClause>
-		<SortOrder>
-			<Value>Scientific_Name, GridRef</Value>
-		</SortOrder>
-		<BufferSize>
-			<Value>10</Value>
-		</BufferSize>
-		<DissolveSize>
-			<Value>10</Value>
-		</DissolveSize>
-	</WaterVolesRivers>
   </InTables>
 
   <!-- The details of the new GIS layer to be created -->
   <OutTable>
+
+	<!-- A comma-delimited list of the column headings, and their data types/lengths, that the output GIS layer should have -->
+	<ColumnDefs>
+		<Value>CommonName Char(100), SciName Char(100), RecYear Char(11), GridRef Char(12), Location Char(100), Status Char(100), FirstYear Char(4), LastYear Char(4), RecCount Integer</Value>
+	</ColumnDefs>
+
+	<!-- The coordinate system for the output GIS layer -->
+	<CoordinateSystem>
+		<value>Earth Projection 8, 79, "m", -2, 49, 0.9996012717, 400000, -100000</value>
+	</CoordinateSystem>
+  
 	<!-- The columns in the new GIS layer and how they will be created -->
 	<Columns>
 		<Col1>
@@ -238,7 +220,7 @@ layers.
 		</Col5>
 		<Col6>
 			<ColumnName>
-				<value>Design</value>
+				<value>Status</value>
 			</ColumnName>
 			<ColumnType>
 				<value>First</value>
@@ -246,41 +228,55 @@ layers.
 		</Col6>
 		<Col7>
 			<ColumnName>
-				<value>Version</value>
+				<value>FirstYear</value>
 			</ColumnName>
 			<ColumnType>
-				<value>First</value>
+				<value>Min</value>
 			</ColumnType>
 		</Col7>
 		<Col8>
 			<ColumnName>
-				<value>Origin</value>
+				<value>LastYear</value>
 			</ColumnName>
 			<ColumnType>
-				<value>Common</value>
+				<value>Max</value>
 			</ColumnType>
 		</Col8>
 		<Col9>
 			<ColumnName>
-				<value>Provider</value>
+				<value>RecCount</value>
 			</ColumnName>
 			<ColumnType>
-				<value>First</value>
+				<value>Count</value>
 			</ColumnType>
 		</Col9>
-		<Col10>
-			<ColumnName>
-				<value>Copyright</value>
-			</ColumnName>
-			<ColumnType>
-				<value>First</value>
-			</ColumnType>
-		</Col10>
 	</Columns>
 
 	<!-- The symbology to apply to the new GIS layer -->
 	<Symbology>
-		<Symbol>
+		<Points>
+			<Clause>
+				<Value></Value>
+			</Clause>
+			<Object>
+				<Value>Point</Value>
+			</Object>
+			<Symbol>
+				<Value>137,255,12, "MapInfo Miscellaneous",256,0</Value>
+			</Symbol>
+		</Points>
+		<Lines>
+			<Clause>
+				<Value></Value>
+			</Clause>
+			<Object>
+				<Value>Line</Value>
+			</Object>
+			<Pen>
+				<Value>2,2,10526880</Value>
+			</Pen>
+		</Lines>
+		<Regions>
 			<Clause>
 				<Value></Value>
 			</Clause>
@@ -293,7 +289,7 @@ layers.
 			<Brush>
 				<Value>5,10526880</Value>
 			</Brush>
-		</Symbol>
+		</Regions>
 	</Symbology>
   </OutTable>
 

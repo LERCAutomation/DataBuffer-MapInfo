@@ -20,7 +20,7 @@
 '* along with DataBuffer.  If not, see <http://www.gnu.org/licenses/>.
 '*
 '***************************************************************
-'* DataBuffer v1.0.6
+'* DataBuffer v1.0.7
 '*
 '* Buffers and (optionally) consolidates records from one or more
 '* MapInfo GIS layers and merges the results into a new output
@@ -28,7 +28,17 @@
 '*
 '*
 '* Created:			Andy Foy - February 2016
-'* Last revised:	Andy Foy - July 2016
+'* Last revised:	Andy Foy - September 2016
+'*
+'* *****************  Version 1.0.7  ***************
+'* Author: Andy Foy		Date: 02/09/2016
+'* A. Move output column definitions and spatial
+'*	  reference system in XML to OutTable node.
+'* B. Set symbology for points, lines and regions in
+'*	  output table.
+'* C. Include column type options for Min, Max and
+'*    count.
+'* D. Enable buffer size to be zero.
 '*
 '* *****************  Version 1.0.6  ***************
 '* Author: Andy Foy		Date: 14/07/2016
@@ -68,7 +78,7 @@ Sub Main
 	'-------------------------------------------------
 	' Set the version number
 	'-------------------------------------------------
-	sVersion = "1.0.6"
+	sVersion = "1.0.7"
 
 	'-------------------------------------------------
 	' Get the title for the Tool menu
@@ -228,12 +238,6 @@ Sub GetDefaultValues
 					' Default file path to store extracts in sub-folders
 					sDefaultPath = GetSingleNodeValue(hXMLNode, "DefaultPath")
 
-					' Definitions of the columns in the new table
-					sOutColumnDefs = GetSingleNodeValue(hXMLNode, "OutColumnDefs")
-
-					' Coordinate system to be used for mapping
-					sCoordSys = GetSingleNodeValue(hXMLNode, "CoordinateSystem")
-
 					'-------------------------------------------------
 					' Get a handle on the input tables node
 					'-------------------------------------------------
@@ -294,8 +298,14 @@ Sub GetDefaultValues
 					'-------------------------------------------------
 					hXMLFilesNodeParent = MIXmlSelectSingleNode(hXMLNode, "OutTable")
 
+					' Definitions of the columns in the new table
+					sOutColumnDefs = GetSingleNodeValue(hXMLFilesNodeParent, "ColumnDefs")
+
+					' Coordinate system to be used for mapping
+					sCoordSys = GetSingleNodeValue(hXMLFilesNodeParent, "CoordinateSystem")
+
 					'-------------------------------------------------
-					' Get a handle on the symbology node for the table
+					' Get a handle on the columns node for the table
 					'-------------------------------------------------
 					hXMLColumnsNode = MIXmlSelectSingleNode(hXMLFilesNodeParent, "Columns")
 
@@ -475,6 +485,7 @@ Sub DialogSetup
 	Dim i, j As Integer
 	Dim aOpenTables(99) As String
 	Redim aOpenTables(99)
+	Redim aInTablesOpen(99)
 	j = 0
 	For i = 1 to UBound(aInTables)
 
@@ -686,6 +697,34 @@ Sub CheckSelection
 	Set ProgressBars On
 
 	'-------------------------------------------------
+	' Count the number of buffered records
+	'-------------------------------------------------
+	Dim iRows As Integer
+	iRows = TableInfo(sOutputName, TAB_INFO_NROWS)
+
+	Call MyPrint("Created a total of " + FormatNumber$(iRows) + " buffered features")
+	Call MyPrint("")
+	
+	'-------------------------------------------------
+	' Turn on FastEdit to speed up the updates
+	'-------------------------------------------------
+	Set Table sOutputName FastEdit On
+
+	'-------------------------------------------------
+	' Set the symbology for the table before closing
+	'-------------------------------------------------
+	Call SetSymbology(sOutputName)
+
+	Dim sCmd As String
+	sCmd = "Commit Table " + sOutputName
+	Run Command (sCmd)
+
+	'-------------------------------------------------
+	' Turn FastEdit off once updates are done
+	'-------------------------------------------------
+	Set Table sOutputName FastEdit Off
+
+	'-------------------------------------------------
 	' Add the output table to the top most map window
 	' (if there is one), otherwise create a new map
 	' window using the table
@@ -696,15 +735,6 @@ Sub CheckSelection
 		Map From sOutputName
 	End If
 
-	'-------------------------------------------------
-	' Count the number of buffered records
-	'-------------------------------------------------
-	Dim iRows As Integer
-	iRows = TableInfo(sOutputName, TAB_INFO_NROWS)
-
-	Call MyPrint("Created a total of " + FormatNumber$(iRows) + " buffered features")
-	Call MyPrint("")
-	
 	Call MyPrint("----------------------------------------------------------------------")
 	Call MyPrint("Process completed!")
 	Call MyPrint("----------------------------------------------------------------------")
@@ -1215,8 +1245,47 @@ Sub BufferRecords
 							If sColumnVal > aColumnValues(iColumn).ValMax Then
 								aColumnValues(iColumn).ValMax = sColumnVal
 							End If
+						Case "Min"
+							'-------------------------------------------------
+							' Set an alias for the column
+							'-------------------------------------------------
+							aColumn = "TempInput.Col" + iColumn
+							
+							'-------------------------------------------------
+							' Get the value of the column (and remove any
+							' double quotes)
+							'-------------------------------------------------
+							sColumnVal = aColumn
+							If Instr(1, sColumnVal, Chr$(34)) > 0 Then
+								sColumnVal = StringReplace(sColumnVal, Chr$(34), "")
+							End If
+				
+							' Check if the min value has changed
+							If sColumnVal < aColumnValues(iColumn).ValMin Then
+								aColumnValues(iColumn).ValMin = sColumnVal
+							End If
+						Case "Max"
+							'-------------------------------------------------
+							' Set an alias for the column
+							'-------------------------------------------------
+							aColumn = "TempInput.Col" + iColumn
+							
+							'-------------------------------------------------
+							' Get the value of the column (and remove any
+							' double quotes)
+							'-------------------------------------------------
+							sColumnVal = aColumn
+							If Instr(1, sColumnVal, Chr$(34)) > 0 Then
+								sColumnVal = StringReplace(sColumnVal, Chr$(34), "")
+							End If
+				
+							' Check if the max value has changed
+							If sColumnVal > aColumnValues(iColumn).ValMax Then
+								aColumnValues(iColumn).ValMax = sColumnVal
+							End If
 						Case Else
 					End Case
+					
 				Next		
 
 			'-------------------------------------------------
@@ -1231,6 +1300,12 @@ Sub BufferRecords
 					'-------------------------------------------------
 					sCmd = "Select * From " + sOutputName + " Where Temp = 1 Into " + sTempOutput + " NoSelect"
 					Run Command (sCmd)
+
+					'-------------------------------------------------
+					' Count the number of objects
+					'-------------------------------------------------
+					Dim iRecs As Integer
+					iRecs = TableInfo(sTempOutput, TAB_INFO_NROWS)
 
 					'-------------------------------------------------
 					' Loop through every column in the output table
@@ -1285,6 +1360,12 @@ Sub BufferRecords
 								Else
 									sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMin + " - " + aColumnValues(iColumn).ValMax + Chr$(34)
 								End If
+							Case "Min"
+								sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMin + Chr$(34)
+							Case "Max"
+								sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMax + Chr$(34)
+							Case "Count"
+								sData = sData + " Col" + iColumn + " = " + iRecs
 							Case Else
 								sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValKey + Chr$(34)
 						End Case
@@ -1298,7 +1379,11 @@ Sub BufferRecords
 					'-------------------------------------------------
 					' Create a buffered object from the 'Temp' objects
 					'-------------------------------------------------
-					sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + sData
+					If iBufferSize > 0 then
+						sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + sData
+					Else
+						sCmd = "Create Object As Union From " + sTempOutput + " Into Table " + sOutputName + sData
+					End If
 					Run Command (sCmd)
 
 					'-------------------------------------------------
@@ -1390,6 +1475,11 @@ Sub BufferRecords
 		Run Command (sCmd)
 
 		'-------------------------------------------------
+		' Count the number of objects
+		'-------------------------------------------------
+		iRecs = TableInfo(sTempOutput, TAB_INFO_NROWS)
+
+		'-------------------------------------------------
 		' Loop through every column in the output table
 		' to set the values
 		'-------------------------------------------------
@@ -1440,6 +1530,12 @@ Sub BufferRecords
 					Else
 						sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMin + " - " + aColumnValues(iColumn).ValMax + Chr$(34)
 					End If
+				Case "Min"
+					sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMin + Chr$(34)
+				Case "Max"
+					sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValMax + Chr$(34)
+				Case "Count"
+					sData = sData + " Col" + iColumn + " = " + iRecs
 				Case Else
 					sData = sData + " Col" + iColumn + " = " + Chr$(34) + aColumnValues(iColumn).ValKey + Chr$(34)
 			End Case
@@ -1453,7 +1549,11 @@ Sub BufferRecords
 		'-------------------------------------------------
 		' Create a buffered object from the 'Temp' objects
 		'-------------------------------------------------
-		sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + sData
+		If iBufferSize > 0 then
+			sCmd = "Create Object As Buffer From " + sTempOutput + " Width " + iBufferSize + " Units " + Chr$(34) + "m" + Chr$(34) + " Type Spherical Resolution 100 Into Table " + sOutputName + sData
+		Else
+			sCmd = "Create Object As Union From " + sTempOutput + " Into Table " + sOutputName + sData
+		End If
 		Run Command (sCmd)
 		
 		'-------------------------------------------------
@@ -1565,7 +1665,7 @@ ErrorTrap:
 
 End Sub
 
-Sub SetSymbology(sNodeName as String, sLocalName As String, sShortName As String)
+Sub SetSymbology(sLocalName As String)
 '***************************************************************
 '* Retrieve the symbology styles and clauses from the config file
 '* which is a XML document
@@ -1575,7 +1675,6 @@ Sub SetSymbology(sNodeName as String, sLocalName As String, sShortName As String
 	Dim hXMLDoc As MIXmlDocument
 	Dim hXMLRoot As MIXmlNode
 	Dim hXMLNode As MIXmlNode
-	Dim hXMLSQLTableNode As MIXmlNode
 	Dim hXMLTableNode As MIXmlNode
 	Dim hXMLSymbologyNode As MIXmlNode
 	Dim hXMLSymbolNodeList As MIXMLNodeList
@@ -1611,12 +1710,7 @@ Sub SetSymbology(sNodeName as String, sLocalName As String, sShortName As String
 					'-------------------------------------------------
 					' Get a handle on the OutTable node
 					'-------------------------------------------------
-					hXMLSQLTableNode = MIXmlSelectSingleNode(hXMLNode, "OutTable")
-
-					'-------------------------------------------------
-					' Get a handle on the current SQL table node
-					'-------------------------------------------------
-					hXMLTableNode = MIXmlSelectSingleNode(hXMLSQLTableNode, sNodeName)
+					hXMLTableNode = MIXmlSelectSingleNode(hXMLNode, "OutTable")
 
 					'-------------------------------------------------
 					' Get a handle on the symbology node for the table
@@ -1655,14 +1749,16 @@ Sub SetSymbology(sNodeName as String, sLocalName As String, sShortName As String
 						' Set the SQL clause used to retrieve the
 						' required rows from the SQL table
 						'-------------------------------------------------
-						Dim sClause As String
+						Dim sClause As String, sSQLClause As String
 						sClause = GetSingleNodeValue(hXMLSymbolNode, "Clause")
 						If sClause <> "" Then
-						    sClause = " And " + sClause
+						    sSQLClause = " And " + sClause
+						Else
+						   sSQLClause = ""
 						End If
 
 						'-------------------------------------------------
-						' Get the type of object (i.e. Point or Region)
+						' Get the type of object (i.e. Point, line or Region)
 						'-------------------------------------------------
 						Dim sObject As String
 						sObject = GetSingleNodeValue(hXMLSymbolNode, "Object")
@@ -1672,7 +1768,7 @@ Sub SetSymbology(sNodeName as String, sLocalName As String, sShortName As String
 						' matching the required SQL clause
 						'-------------------------------------------------
 						Dim sCmd As String
-						sCmd = "Select * From " + sLocalName + "_" + sShortName + " Where Str$(obj) = """ + sObject + "" + sClause + " Into NewStyle NoSelect"
+						sCmd = "Select * From " + sLocalName + " Where Str$(obj) Like ""%" + sObject + """" + sSQLClause + " Into NewStyle NoSelect"
 						Run Command (sCmd)
 
 						'-------------------------------------------------
@@ -1681,7 +1777,11 @@ Sub SetSymbology(sNodeName as String, sLocalName As String, sShortName As String
 						Dim iRows As Integer
 						iRows = TableInfo(NewStyle, TAB_INFO_NROWS)
 
-						Call MyPrint("Setting " + sObject + " style for " + FormatNumber$(iRows) + " rows where " + sClause)
+						If sClause <> "" Then
+							Call MyPrint("Setting " + sObject + " style for " + FormatNumber$(iRows) + " rows where " + sClause)
+						Else
+							Call MyPrint("Setting " + sObject + " style for " + FormatNumber$(iRows) + " rows")
+						End If
 
 						'-------------------------------------------------
 						' If any rows were selected then set the styles
@@ -1700,6 +1800,9 @@ Sub SetSymbology(sNodeName as String, sLocalName As String, sShortName As String
 								Case "Point"
 									sSymbol = GetSingleNodeValue(hXMLSymbolNode, "Symbol")
 									stlSymbol = STLText2Symbol(sSymbol)
+								Case "Line"
+									sPen = GetSingleNodeValue(hXMLSymbolNode, "Pen")
+									stlPen = STLText2Pen(sPen)
 								Case "Region"
 									sPen = GetSingleNodeValue(hXMLSymbolNode, "Pen")
 									stlPen = STLText2Pen(sPen)
@@ -1715,6 +1818,8 @@ Sub SetSymbology(sNodeName as String, sLocalName As String, sShortName As String
 							Do Case sObject
 								Case "Point"
 									Update NewStyle Set Obj = SetStylePoint(Obj, stlSymbol)
+								Case "Line"
+									Update NewStyle Set Obj = SetStyleLine(Obj, stlPen)
 								Case "Region"
 									Update NewStyle Set Obj = SetStylePolygon(Obj, stlPen, stlBrush)
 								Case Else
@@ -1743,6 +1848,14 @@ Sub SetSymbology(sNodeName as String, sLocalName As String, sShortName As String
 
 CleanUp:
 	'-------------------------------------------------
+	' Close the temporary NewStyle table if it is
+	' already/still open in the current MapInfo session
+	'-------------------------------------------------
+	If TableIsOpen("NewStyle") Then
+		Close Table NewStyle
+	End If
+
+	'-------------------------------------------------
 	' Destroy the handles
 	'-------------------------------------------------
 	If hXMLSymbolNode Then Call MIXmlNodeDestroy(hXMLSymbolNode) End If
@@ -1750,7 +1863,6 @@ CleanUp:
 	If hXMLSymbologyNode Then Call MIXmlNodeDestroy(hXMLSymbologyNode) End If
 	If hXMLTableNode Then Call MIXmlNodeDestroy(hXMLTableNode) End If
 
-	If hXMLSQLTableNode Then Call MIXmlNodeDestroy(hXMLSQLTableNode) End If
 	If hXMLNode Then Call MIXmlNodeDestroy(hXMLNode) End If
 	If hXMLRoot Then Call MIXmlNodeDestroy(hXMLRoot) End If
 	If hXMLDoc Then Call MIXmlDocumentDestroy(hXMLDoc) End If
@@ -1767,6 +1879,13 @@ Function SetStylePoint(ByVal oObj As Object, ByVal stlSymbol As Symbol) As Objec
 
 	Alter Object oObj Info OBJ_INFO_SYMBOL, stlSymbol
 	SetStylePoint = oObj
+
+End Function
+
+Function SetStyleLine(ByVal oObj As Object, ByVal stlPen As Pen) As Object
+
+	Alter Object oObj Info OBJ_INFO_PEN, stlPen
+	SetStyleLine = oObj
 
 End Function
 

@@ -97,9 +97,7 @@ Declare Sub BufferRecords
 	iBufferSize As Integer,
 	iDissolveSize As Integer)
 Declare Sub SetSymbology
-	(sNodeName As String,
-	sTableName As String,
-	sShortName As String)
+	(sTableName As String)
 Declare Sub AboutBox
 Declare Sub egsit
 Declare Sub MyPrint
@@ -140,6 +138,9 @@ Declare Function GetNodeAttribute(
 Declare Function SetStylePoint(
 	ByVal oObj As Object,
 	ByVal stlSymbol As Symbol) As Object
+Declare Function SetStyleLine(
+	ByVal oObj As Object,
+	ByVal stlPen As Pen) As Object
 Declare Function SetStylePolygon(
 	ByVal oObj As Object,
 	ByVal stlPen As Pen,
