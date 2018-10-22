@@ -2,7 +2,7 @@
 '* records from one or more MapInfo GIS layers and merge the results
 '* into a single output MapInfo GIS layer.
 '*
-'* Copyright © 2016 TVERC
+'* Copyright © 2016 - 2018 TVERC, SBIC
 '* 
 '* This file is part of the MapInfo tool 'DataBuffer'.
 '* 
@@ -20,7 +20,7 @@
 '* along with DataBuffer.  If not, see <http://www.gnu.org/licenses/>.
 '*
 '***************************************************************
-'* DataBuffer v1.0.7
+'* DataBuffer v1.0.8
 '*
 '* Buffers and (optionally) consolidates records from one or more
 '* MapInfo GIS layers and merges the results into a new output
@@ -28,7 +28,11 @@
 '*
 '*
 '* Created:			Andy Foy - February 2016
-'* Last revised:	Andy Foy - September 2016
+'* Last revised:	Andy Foy - October 2018
+'*
+'* *****************  Version 1.0.9  ***************
+'* Author: Andy Foy		Date: 22/10/2018
+'* A. Include new tool buttons for MI Pro 64bit.
 '*
 '* *****************  Version 1.0.7  ***************
 '* Author: Andy Foy		Date: 02/09/2016
@@ -75,32 +79,25 @@ Sub Main
 '* Main sub-routine
 '***************************************************************
 
+	OnError Goto HandleError
+
 	'-------------------------------------------------
 	' Set the version number
 	'-------------------------------------------------
-	sVersion = "1.0.7"
+	sVersion = "1.0.8"
 
 	'-------------------------------------------------
 	' Get the title for the Tool menu
 	'-------------------------------------------------
 	Call GetToolTitle
 
-	'-------------------------------------------------
-	' Create a new menu
-	'-------------------------------------------------
-	Create Menu "&" & sToolTitle As
-	   "&Run " & sToolTitle & " ..." Calling OpenDialog,
-	   "(-",
-	   "&About " & sToolTitle & " ..." Calling AboutBox,
-	   "E&xit " & sToolTitle Calling egsit
-
-	'-------------------------------------------------
-	' Add the new menu item to the Tools menu
-	'-------------------------------------------------
-	Alter Menu "Tools" Add
-		sToolTitle As sToolTitle
-
+	Call CreateToolMenu(sToolTitle)
+	
 	Exit Sub
+
+HandleError:
+	Note "Main: " + Error$()
+	Resume Next
 
 End Sub
 
@@ -383,7 +380,7 @@ GetVariablesError:
 
 End Sub
 
-Sub OpenDialog
+Sub DataBuffer
 '***************************************************************
 '* Create the user dialog window
 '***************************************************************
@@ -1920,7 +1917,7 @@ Sub AboutBox
 		Title "Created by Andy Foy Consulting."
 		Position 10,50
 	Control StaticText
-		Title "Copyright© 2016 TVERC."
+		Title "Copyright© 2016 - 2018 TVERC, SBIC."
 		Position 10,60
 	Control OKButton
 		Position 185,85
@@ -1939,7 +1936,6 @@ Sub MyPrint(ByVal sMsg As String)
 
 	'-------------------------------------------------
 	' Write the message passed to the output file
-
 	'-------------------------------------------------
 	Print #1, FormatDate$(CurDate()) + " " + FormatTime$(CurTime(),"H:mm:ss") + " : " + sMsg
 

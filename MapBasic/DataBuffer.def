@@ -2,7 +2,7 @@
 '* records from one or more MapInfo GIS layers and merge the results
 '* into a single output MapInfo GIS layer.
 '*
-'* Copyright © 2016 TVERC
+'* Copyright © 2016 - 2018 TVERC, SBIC
 '* 
 '* This file is part of the MapInfo tool 'DataBuffer'.
 '* 
@@ -20,14 +20,24 @@
 '* along with DataBuffer.  If not, see <http://www.gnu.org/licenses/>.
 '*
 '***************************************************************
+'* DataBuffer.def v1.01
 '*
 '* Defines global variables and declares subroutines and functions.
 '*
+'*
+'* Created:			Andy Foy - February 2016
+'* Last revised:	Andy Foy - October 2018
 '***************************************************************
 
 Include "MapBasic.def"
 Include "Menu.def"
 Include "Icons.def"
+
+'Include "XMLMenu32.def"
+
+Include "IMapInfoPro.def"
+Include "Enums.def"
+Include "XMLMenu64.def"
 
 '-------------------------------------------------
 ' Define the custom variable types
@@ -66,23 +76,16 @@ End Type
 Define NORMAL_PRIORITY_CLASS &H20
 Define INFINITE -1
 Define STRING_LEN 1024
-Define MIXmlDocument Integer
-Define MIXmlNode Integer
-Define MIXmlNodeList Integer
-Define MIXmlNamedNodeMap Integer
-Define MIXMLSchemaCollection Integer
-Define MIXML_LIB_NAME "GmlXlat.dll"
-Define MIWEBSERVICES_LIB_NAME "GmlXlat.dll"
-'Define MIXML_LIB_NAME "MapInfo.XmlUtil.dll"
-'Define MIWEBSERVICES_LIB_NAME "MapInfo.XmlUtil.dll"
 
 '-------------------------------------------------
 ' Declare the subroutines
 '-------------------------------------------------
 Declare Sub Main
 Declare Sub GetToolTitle
+Declare Sub CreateToolMenu
+	(ByVal sToolTitle As String)
 Declare Sub GetDefaultValues
-Declare Sub OpenDialog
+Declare Sub DataBuffer
 Declare Sub DialogSetup
 Declare Sub PartnerList_Handler
 Declare Sub CheckSelection
