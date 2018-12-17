@@ -20,15 +20,19 @@
 '* along with DataBuffer.  If not, see <http://www.gnu.org/licenses/>.
 '*
 '***************************************************************
-'* DataBuffer v1.0.8
+'* DataBuffer v1.0.10
 '*
 '* Buffers and (optionally) consolidates records from one or more
 '* MapInfo GIS layers and merges the results into a new output
 '* MapInfo GIS layer.
 '*
 '*
-'* Created:			Andy Foy - February 2016
-'* Last revised:	Andy Foy - October 2018
+'* Created:         Andy Foy - February 2016
+'* Last revised:    Andy Foy - December 2018
+'*
+'* *****************  Version 1.0.10  **************
+'* Author: Andy Foy		Date: 17/12/2018
+'* A. Fix links to tool buttons.
 '*
 '* *****************  Version 1.0.9  ***************
 '* Author: Andy Foy		Date: 22/10/2018
@@ -84,7 +88,7 @@ Sub Main
 	'-------------------------------------------------
 	' Set the version number
 	'-------------------------------------------------
-	sVersion = "1.0.8"
+	sVersion = "1.0.10"
 
 	'-------------------------------------------------
 	' Get the title for the Tool menu

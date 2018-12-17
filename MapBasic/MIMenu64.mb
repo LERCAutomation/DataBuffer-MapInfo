@@ -109,8 +109,8 @@ Sub CreateToolMenu(ByVal sToolTitle As String)
 		'-------------------------------------------------
 		' Set the button icon
 		'-------------------------------------------------
-		Call SetRbnBtnCtrlSmallIcon(mtsBtn, New_Uri("D:\GitHub\DataBuffer-MapInfo\MapBasic\btnDataBuffer.png", 0))
-		Call SetRbnBtnCtrlLargeIcon(mtsBtn, New_Uri("D:\GitHub\DataBuffer-MapInfo\MapBasic\DataBuffer.png", 0))
+		Call SetRbnBtnCtrlSmallIcon(mtsBtn, New_Uri(ApplicationDirectory$() + "btnDataBuffer.png", 0))
+		Call SetRbnBtnCtrlLargeIcon(mtsBtn, New_Uri(ApplicationDirectory$() + "DataBuffer.png", 0))
 		Call SetRbnBtnCtrlIsLarge(mtsBtn, TRUE)
 
 		Alter Menu ID 4 Add
