@@ -20,13 +20,17 @@
 '* along with DataBuffer.  If not, see <http://www.gnu.org/licenses/>.
 '*
 '***************************************************************
-'* GenFunctions v1.42
+'* GenFunctions v1.43
 '*
 '* Contains general functions used by the DataExtractor tool.
 '*
 '*
 '* Created:			Andy Foy - February 2013
-'* Last revised:	Andy Foy - September 2015
+'* Last revised:	Andy Foy - May 2019
+'* 
+'* *****************  Version 1.43  *****************
+'* Author: Andy Foy		Date: 28/05/2019
+'* A. Added function to split string at character.
 '* 
 '* *****************  Version 1.42  *****************
 '* Author: Andy Foy		Date: 11/09/2015
@@ -384,4 +388,56 @@ Function SensitiveGR(ByVal GridRef As String, ByVal Precision As Integer) As Str
 
 	SensitiveGR = SensitiveRef
 	
+End Function
+
+Function SplitStringAtCharacter(ByVal sInput As String, ByVal sSplitChar As String, sPartsArray() As String) As Integer
+'*************************************************
+'* Return an array from a string split at a character
+'*************************************************
+
+OnError Goto HandleError
+
+Dim iPos, iEnd, iCount As Integer
+
+    If Len(sInput) = 0 Then
+        SplitStringAtCharacter = 0
+        Exit Function
+    End If
+    
+    Do While iEnd <= Len(sInput)
+        iPos = iEnd + 1
+        iEnd = InStr(iPos, sInput, sSplitChar)
+        If iEnd = 0 Then
+            iEnd = Len(sInput) + 1
+        End If
+
+        iCount = iCount + 1
+        ReDim sPartsArray(iCount)
+        sPartsArray(iCount) = Mid$(sInput, iPos, iEnd - iPos)
+    Loop
+
+    SplitStringAtCharacter = UBound(sPartsArray)
+
+Exit Function
+
+HandleError:
+    Note Error$()
+
+End Function
+
+Function ArrayContainsValue(arrValues() As String, ByVal sValue As String) As Logical
+'*************************************************
+'* Search an array for a given string
+'*************************************************
+
+Dim i As Integer
+ArrayContainsValue = false
+
+    For i = 1 To Ubound(arrValues)
+        If arrValues(i) = sValue Then
+            ArrayContainsValue = true
+            Exit Function       
+        End if  
+    Next
+
 End Function

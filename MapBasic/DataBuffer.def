@@ -33,11 +33,11 @@ Include "MapBasic.def"
 Include "Menu.def"
 Include "Icons.def"
 
-'Include "XMLMenu32.def"
+Include "XMLMenu32.def"
 
-Include "IMapInfoPro.def"
-Include "Enums.def"
-Include "XMLMenu64.def"
+'Include "IMapInfoPro.def"
+'Include "Enums.def"
+'Include "XMLMenu64.def"
 
 '-------------------------------------------------
 ' Define the custom variable types
@@ -166,6 +166,15 @@ Declare Function GetUserID() As String
 Declare Function SensitiveGR
 	(ByVal GridRef As String,
 	ByVal Precision As Integer) As String
+Declare Function SplitStringAtCharacter
+    (ByVal sInput As String           	'String to be split into substrings
+    , ByVal sSplitChar As String    	'Character used as delimiter (e.g. ",", ";")
+    , sPartsArray() As String        	'String array to be populated with the substrings
+    ) As Integer                    	'Number of substrings found in sInput
+Declare Function ArrayContainsValue
+    (arrValues() As String,				'Array to be searched
+    ByVal sValue As String				'String to be looked for
+    ) As Logical						'True if found, False if not
 
 Declare Function CreateDirectory Lib "kernel32"
 	Alias "CreateDirectoryA"
@@ -270,6 +279,7 @@ Type ColumnValues
 	ValMax As String
 	ValFirst As String
 	ValCommon As String
+	ValList As String
 End Type
 
 '-------------------------------------------------
@@ -281,6 +291,7 @@ Global sToolTitle As String
 
 Global sLogFileName As String
 Global sDefaultPath As String
+Global sSplitChar As String
 Global sOutTableName As String
 Global sOutColumnDefs As String
 Global sOutColumns As String

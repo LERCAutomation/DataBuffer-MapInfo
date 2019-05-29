@@ -39,6 +39,11 @@ layers.
 	<value>D:\Andy\TVERC\Data Buffer</value>
   </DefaultPath>
 
+  <!-- The character to use when splitting an input string -->
+  <SplitChar>
+	<value>,</value>
+  </SplitChar>
+
   <!-- The names and local names of the tables to be processed -->
   <InTables>
 	<Badgers>
