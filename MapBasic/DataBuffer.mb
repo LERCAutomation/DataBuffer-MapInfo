@@ -20,7 +20,7 @@
 '* along with DataBuffer.  If not, see <http://www.gnu.org/licenses/>.
 '*
 '***************************************************************
-'* DataBuffer v1.0.11
+'* DataBuffer v1.0.12
 '*
 '* Buffers and (optionally) consolidates records from one or more
 '* MapInfo GIS layers and merges the results into a new output
@@ -29,6 +29,10 @@
 '*
 '* Created:         Andy Foy - February 2016
 '* Last revised:    Andy Foy - May 2019
+'*
+'* *****************  Version 1.0.12  **************
+'* Author: Andy Foy		Date: 29/05/2019
+'* A. Allow user to select XML profile to use.
 '*
 '* *****************  Version 1.0.11  **************
 '* Author: Andy Foy		Date: 28/05/2019
@@ -96,7 +100,7 @@ Sub Main
 	'-------------------------------------------------
 	' Set the version number
 	'-------------------------------------------------
-	sVersion = "1.0.11"
+	sVersion = "1.0.12"
 
 	'-------------------------------------------------
 	' Get the title for the Tool menu
@@ -165,6 +169,12 @@ Sub GetToolTitle
 						sToolTitle = sTitle
 					End If
 
+					' Default XML file
+					sDefaultXMLFile = GetSingleNodeValue(hXMLNode, "DefaultProfile")
+					If sDefaultXMLFile = "" Then
+						sDefaultXMLFile = "DefaultProfile"
+					End If
+					
 				End If
 
 			End If
@@ -193,7 +203,7 @@ GetTitleError:
 
 End Sub
 
-Sub GetDefaultValues
+Sub GetDefaultValues(ByVal sXMLFile As String)
 '***************************************************************
 '* Retrieve all the default values from the config file
 '* which is a XML document
@@ -220,7 +230,7 @@ Sub GetDefaultValues
 		' Load the document into the document handle
 		'-------------------------------------------------
 		Dim iXMLLoad As SmallInt
-		iXMLLoad = MIXmlDocumentLoad(hXMLDoc, ApplicationDirectory$() + "DataBuffer.xml", bParseError, FALSE, FALSE)
+		iXMLLoad = MIXmlDocumentLoad(hXMLDoc, ApplicationDirectory$() + sXMLFile, bParseError, FALSE, FALSE)
 		if iXMLLoad > 0 Then
 
 			'-------------------------------------------------
@@ -413,9 +423,18 @@ Sub DataBuffer
 	sUserID = StringReplace(sUserID, ".", "_")
 
 	'-------------------------------------------------
+	' Prompt the user for their required config file
+	'-------------------------------------------------
+	sXMLFile = ""
+	Call GetXmlProfile
+	If sXMLFile = "" Then
+		Exit Sub
+	End If
+	
+	'-------------------------------------------------
 	' Retrieve the default values from the config file
 	'-------------------------------------------------
-	Call GetDefaultValues
+	Call GetDefaultValues(sXMLFile)
 
 	'-------------------------------------------------
 	' Build a new dialog window
@@ -460,6 +479,110 @@ Sub DataBuffer
 		Position 110,170
 		Width 40
 		Calling CheckSelection
+
+Done:
+	Exit Sub
+	
+ErrorTrap:
+	Note str$(Err()) + ": " + Error$()
+	Call MyPrint(str$(Err()) + ": " + Error$())
+	Resume Done
+
+End Sub
+
+Sub GetXMLProfile()
+'***************************************************************
+'* Create the user dialog window
+'***************************************************************
+
+	'-------------------------------------------------
+	' Trap errors
+	'-------------------------------------------------
+    OnError Goto ErrorTrap
+
+	Dim sFileExclude As String
+	sFileExclude = "DataBuffer.xml"
+	
+	Dim sDir As String
+	sDir = ApplicationDirectory$()
+	
+	Dim bResult As Logical
+	Dim sFileNames() as String
+	bResult = GetFileList(sDir, "*.xml" , sFileNames(), sFileExclude)
+	
+	Dim i as integer
+	Dim sXMLFiles As String
+	sXMLFiles = ""
+	If bResult = True And UBound(sFileNames()) > 0 Then
+	
+		For i = 1 to UBound(sFileNames())
+		
+			sXMLFiles = sXMLFiles + sFileNames(i) + ";"
+	
+		Next
+		
+		sXMLFiles = Left$(sXMLFiles, Len(sXMLFiles) - 1)
+
+	Else
+
+		Note "There are no profile XML files in '" + ApplicationDirectory$() + "'"
+		Goto Done
+
+	End If	
+	
+	If UBound(sFileNames()) = 1 Then
+		sXMLFile = sFileNames(1) + ".xml"
+		Goto Done
+	End If
+	
+	'-------------------------------------------------
+	' Build a new dialog window
+	'-------------------------------------------------
+	Dialog
+		Title "Data Buffer " + sVersion
+		Width 190
+		Height 80
+		Position 50, 70
+
+	'-------------------------------------------------
+	' Add a profile table listbox
+	'-------------------------------------------------
+	Control StaticText Title "Please Choose a Profile:"
+		Position 10, 10
+	Control PopupMenu
+		ID 1
+		Title From Variable sXMLFiles
+		Value iDefaultXMLFile
+		Position 10, 20
+		Height 10
+		Width 170
+		Into iXMLFile
+
+	'-------------------------------------------------
+	' Add Ok and cancel buttons
+	'-------------------------------------------------
+	Control CancelButton
+		Position 95,60
+		Width 40
+	Control OkButton
+		Title "Ok"
+		Position 140,60
+		Width 40
+		'Calling CheckSelection
+
+	'-------------------------------------------------
+	' Store the dialog variables
+	'-------------------------------------------------
+	If CommandInfo(CMD_INFO_DLG_OK) Then
+		sXMLFile = sFileNames(iXMLFile) + ".xml"
+	Else
+		sXMLFile = ""
+	End If
+
+	'-------------------------------------------------
+	' Close the dialog
+	'-------------------------------------------------
+	'Dialog Remove
 
 Done:
 	Exit Sub
@@ -606,8 +729,8 @@ Sub CheckSelection
 	sOutputFile = FileSaveAsDlg(sDefaultPath, "", "TAB", "Select where to save the output file")
 
 	if sOutputFile = "" then
-		Call MyPrint("No output file selected - process cancelled")
-		Note "No output file selected - process cancelled"
+		Call MyPrint("No output file selected - process cancelled.")
+		Note "No output file selected - process cancelled."
 		Exit Sub
 	End If
 
@@ -624,8 +747,8 @@ Sub CheckSelection
 	iSecurity = 0
 	iSuccess = SetCurrentDirectory(sOutputPath)
 	if iSuccess = 0 Then
-		Call MyPrint("Output folder does not exist - process cancelled")
-		Note "Output folder does not exist - process cancelled"
+		Call MyPrint("Output folder does not exist - process cancelled.")
+		Note "Output folder does not exist - process cancelled."
 		Exit Sub
 	End If
 
@@ -634,8 +757,8 @@ Sub CheckSelection
 	' extension
 	'-------------------------------------------------
 	if UCase$(Right$(sOutputName, 3)) <> UCase$("TAB") Then
-		Call MyPrint("Output file has incorrect extension - process cancelled")
-		Note "Output file has incorrect extension - process cancelled"
+		Call MyPrint("Output file has incorrect extension - process cancelled.")
+		Note "Output file has incorrect extension - process cancelled."
 		Exit Sub
 	End If
 
@@ -659,7 +782,7 @@ Sub CheckSelection
 	'-------------------------------------------------
 	sOutputName = Left$(sOutputName, Len(sOutputName) - 4)
 
-	Call MyPrint("Output File = '" + sOutputFile + "'")
+	Call MyPrint("Output File = '" + sOutputFile + "'.")
 
 	'-------------------------------------------------
 	' Call the subroutine to create the new
@@ -716,7 +839,7 @@ Sub CheckSelection
 	Dim iRows As Integer
 	iRows = TableInfo(sOutputName, TAB_INFO_NROWS)
 
-	Call MyPrint("Created a total of " + FormatNumber$(iRows) + " buffered features")
+	Call MyPrint("Created a total of " + FormatNumber$(iRows) + " buffered features.")
 	Call MyPrint("")
 	
 	'-------------------------------------------------
@@ -985,6 +1108,56 @@ Sub BufferRecords
 	Run Command (sCmd)
 
 	'-------------------------------------------------
+	' Count the number of rows selected
+	'-------------------------------------------------
+	Dim iRows As Integer
+	iRows = TableInfo(sTempInput, TAB_INFO_NROWS)
+
+	If iRows = 0 Then
+		Call MyPrint("No rows selected.")
+		Goto CleanUp
+	End If
+
+	'-------------------------------------------------
+	' Build a string of all the column names
+	'-------------------------------------------------
+	Dim sColData As String
+	sColData = ""
+
+	Dim sColName As String
+	Dim iColNum As Integer
+	For iColNum = 1 To TableInfo(sTempInput, TAB_INFO_NCOLS)
+	   sColName = ColumnInfo(sTempInput, "COL" & iColNum, COL_INFO_NAME)
+	   sColData = sColData + sColName + "=" + sColName + ","
+	Next
+	
+	sColData = Left$(sColData, Len(sColData) - 1)
+	
+	'-------------------------------------------------
+	' Turn on FastEdit to speed up the updates
+	'-------------------------------------------------
+	Set Table sTempInput FastEdit On
+	Set Table sTempInput Undo Off
+
+	'-------------------------------------------------
+	' Select all the objects
+	'-------------------------------------------------
+	sCmd = "Select * From " + sTempInput + " Into Selection"
+	Run Command (sCmd)
+
+	'-------------------------------------------------
+	' Disaggregate all the objects
+	'-------------------------------------------------
+	sCmd = "Objects Disaggregate Into Table " + sTempInput + " Data " + sColData
+	Run Command (sCmd)
+
+	'-------------------------------------------------
+	' Save the dissagregated objects
+	'-------------------------------------------------
+	sCmd = "Commit Table " + sTempInput
+	Run Command (sCmd)
+	
+	'-------------------------------------------------
 	' If a temporary unique column doesn't already
 	' exist
 	'-------------------------------------------------
@@ -1007,6 +1180,12 @@ Sub BufferRecords
 	End If
 
 	'-------------------------------------------------
+	' Turn on FastEdit to speed up the updates
+	'-------------------------------------------------
+	Set Table sTempInput FastEdit On
+	Set Table sTempInput Undo Off
+
+	'-------------------------------------------------
 	' Update the unique column in the table
 	'-------------------------------------------------
 	sCmd = "Update " + sTempInput + " Set RowInd = RowID"
@@ -1018,6 +1197,12 @@ Sub BufferRecords
 	sCmd = "Commit Table " + sTempInput
 	Run Command (sCmd)
 	
+	'-------------------------------------------------
+	' Turn off FastEdit after updates
+	'-------------------------------------------------
+	Set Table sTempInput FastEdit Off
+	Set Table sTempInput Undo On
+
 	Call MyPrint("Buffering features to " + iBufferSize + " metres ...")
 
 	'-------------------------------------------------
@@ -1045,10 +1230,10 @@ Sub BufferRecords
 	'-------------------------------------------------
 	' If there is no key column then cluster the records
 	'-------------------------------------------------
-	If bKeyFound = False Then
+	If bCluster = False And bKeyFound = False Then
 		Call MyPrint("No key field found. Features will be clustered by proximity.")
 		bCluster = True
-		iClusterSize = 0.01
+		iClusterSize = 0
 	End If
 
 	'-------------------------------------------------
@@ -1141,7 +1326,6 @@ Sub BufferRecords
 	'-------------------------------------------------
 	' Count the number of rows selected
 	'-------------------------------------------------
-	Dim iRows As Integer
 	iRows = TableInfo(sTempTable, TAB_INFO_NROWS)
 
 	Call MyPrint("Buffering " + FormatNumber$(iRows) + " features ...")	
@@ -1352,6 +1536,7 @@ Sub BufferRecords
 						Case "LIST"
 							'-------------------------------------------------
 							' Set an alias for the column
+
 							'-------------------------------------------------
 							aColumn = "TempTable.Col" + iColumn
 							
@@ -1674,7 +1859,7 @@ Sub BufferRecords
 
 		Set ProgressBars On
 
-		Call MyPrint("Created " + FormatNumber$(iOutCount) + " buffered features")
+		Call MyPrint("Created " + FormatNumber$(iOutCount) + " buffered features.")
 
 	End If
 
@@ -1873,9 +2058,9 @@ Sub SetSymbology(sLocalName As String)
 						iRows = TableInfo(NewStyle, TAB_INFO_NROWS)
 
 						If sClause <> "" Then
-							Call MyPrint("Setting " + sObject + " style for " + FormatNumber$(iRows) + " rows where " + sClause)
+							Call MyPrint("Setting " + sObject + " style for " + FormatNumber$(iRows) + " rows where " + sClause + " ...")
 						Else
-							Call MyPrint("Setting " + sObject + " style for " + FormatNumber$(iRows) + " rows")
+							Call MyPrint("Setting " + sObject + " style for " + FormatNumber$(iRows) + " rows ...")
 						End If
 
 						'-------------------------------------------------
