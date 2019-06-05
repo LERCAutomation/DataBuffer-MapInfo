@@ -20,7 +20,7 @@
 '* along with DataBuffer.  If not, see <http://www.gnu.org/licenses/>.
 '*
 '***************************************************************
-'* DataBuffer.def v1.02
+'* DataBuffer.def v1.03
 '*
 '* Defines global variables and declares subroutines and functions.
 '*
@@ -329,6 +329,8 @@ Global iDefaultXMLFile As Integer
 
 Global sLogFileName As String
 Global sDefaultPath As String
+Global sDefaultClearLogFile As String
+Global sDefaultCluster As String
 Global sSplitChar As String
 Global sOutTableName As String
 Global sOutColumnDefs As String
@@ -346,6 +348,9 @@ Global iInTable As Integer
 Global iInTableCnt As Integer
 Global iInTableTot As Integer
 
+Global bDefaultClearLogFile As Logical
+Global bDefaultCluster As Logical
 Global bClearLog As Logical
+Global bCluster As Logical
 
 Global sOutputPath, sOutputName As String

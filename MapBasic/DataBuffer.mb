@@ -20,7 +20,7 @@
 '* along with DataBuffer.  If not, see <http://www.gnu.org/licenses/>.
 '*
 '***************************************************************
-'* DataBuffer v1.0.12
+'* DataBuffer v1.0.13
 '*
 '* Buffers and (optionally) consolidates records from one or more
 '* MapInfo GIS layers and merges the results into a new output
@@ -28,7 +28,13 @@
 '*
 '*
 '* Created:         Andy Foy - February 2016
-'* Last revised:    Andy Foy - May 2019
+'* Last revised:    Andy Foy - June 2019
+'*
+'* *****************  Version 1.0.13  **************
+'* Author: Andy Foy		Date: 05/06/2019
+'* A. Add option to cluster features or not.
+'* B. Add "DefaultCluster" option to XML.
+'* C. Add "DefaultClearLogFile" option to XML.
 '*
 '* *****************  Version 1.0.12  **************
 '* Author: Andy Foy		Date: 29/05/2019
@@ -100,7 +106,7 @@ Sub Main
 	'-------------------------------------------------
 	' Set the version number
 	'-------------------------------------------------
-	sVersion = "1.0.12"
+	sVersion = "1.0.13"
 
 	'-------------------------------------------------
 	' Get the title for the Tool menu
@@ -162,6 +168,7 @@ Sub GetToolTitle
 					' Load the default values from the child nodes
 					' under the DataBuffer node
 					'-------------------------------------------------
+
 					' Title for adding the program to the Tool menu
 					Dim sTitle As String
 					sTitle = GetSingleNodeValue(hXMLNode, "ToolTitle")
@@ -259,6 +266,12 @@ Sub GetDefaultValues(ByVal sXMLFile As String)
 
 					' Character to use when splitting an input string
 					sSplitChar = GetSingleNodeValue(hXMLNode, "SplitChar")
+
+					' Default option to cluster output features
+					sDefaultCluster = GetSingleNodeValue(hXMLNode, "DefaultCluster")
+
+					' Default option to clear log file
+					sDefaultClearLogFile= GetSingleNodeValue(hXMLNode, "DefaultClearLogFile")
 
 					'-------------------------------------------------
 					' Get a handle on the input tables node
@@ -442,7 +455,7 @@ Sub DataBuffer
 	Dialog
 		Title "Data Buffer " + sVersion
 		Width 160
-		Height 190
+		Height 210
 		Position 50, 70
 		Calling DialogSetup
 
@@ -459,24 +472,34 @@ Sub DataBuffer
 		Width 140
 
 	'-------------------------------------------------
+	' Add a checkbox for clustering output features
+	'-------------------------------------------------
+	Control CheckBox
+		ID 2
+		Title "Cluster output features?"
+		Position 10,150
+		Value bDefaultCluster
+		'Into bCluster
+
+	'-------------------------------------------------
 	' Add a checkbox for clearing the log file
 	'-------------------------------------------------
 	Control CheckBox
 		ID 6
 		Title "Clear log file?"
-		Position 10,150
-		Value TRUE
+		Position 10,165
+		Value bDefaultClearLogFile
 		'Into bClearLog
 
 	'-------------------------------------------------
 	' Add Ok and cancel buttons
 	'-------------------------------------------------
 	Control CancelButton
-		Position 65,170
+		Position 65,190
 		Width 40
 	Control Button
 		Title "Ok"
-		Position 110,170
+		Position 110,190
 		Width 40
 		Calling CheckSelection
 
@@ -669,6 +692,27 @@ Sub DialogSetup
 		End If
 	End If
 
+SetDefaults:
+
+	'-------------------------------------------------
+	' Set the default value for clustering the output
+	' features
+	'-------------------------------------------------
+	If UCase$(sDefaultCluster) = "YES" OR UCase$(sDefaultCluster) = "Y" Then
+		Alter Control 2 Value TRUE
+	Else
+		Alter Control 2 Value FALSE
+	End If
+
+	'-------------------------------------------------
+	' Set the default value for clearing the log file
+	'-------------------------------------------------
+	If UCase$(sDefaultClearLogFile) = "YES" OR UCase$(sDefaultClearLogFile) = "Y" Then
+		Alter Control 6 Value TRUE
+	Else
+		Alter Control 6 Value FALSE
+	End If
+
 End Sub
 
 Sub CheckSelection
@@ -679,6 +723,7 @@ Sub CheckSelection
 	'-------------------------------------------------
 	' Store the dialog variables
 	'-------------------------------------------------
+	bCluster = ReadControlValue(2)
 	bClearLog = ReadControlValue(6)
 
 	'-------------------------------------------------
@@ -1177,42 +1222,33 @@ Sub BufferRecords
 		sCmd = "Create Index On " + sTempInput + "(RowInd)"
 		Run Command (sCmd)
 
-	End If
+		'-------------------------------------------------
+		' Turn on FastEdit to speed up the updates
+		'-------------------------------------------------
+		Set Table sTempInput FastEdit On
+		Set Table sTempInput Undo Off
 
-	'-------------------------------------------------
-	' Turn on FastEdit to speed up the updates
-	'-------------------------------------------------
-	Set Table sTempInput FastEdit On
-	Set Table sTempInput Undo Off
+		'-------------------------------------------------
+		' Update the unique column in the table
+		'-------------------------------------------------
+		sCmd = "Update " + sTempInput + " Set RowInd = RowID"
+		Run Command (sCmd)
 
-	'-------------------------------------------------
-	' Update the unique column in the table
-	'-------------------------------------------------
-	sCmd = "Update " + sTempInput + " Set RowInd = RowID"
-	Run Command (sCmd)
-
-	'-------------------------------------------------
-	' Save the updates
-	'-------------------------------------------------
-	sCmd = "Commit Table " + sTempInput
-	Run Command (sCmd)
+		'-------------------------------------------------
+		' Save the updates
+		'-------------------------------------------------
+		sCmd = "Commit Table " + sTempInput
+		Run Command (sCmd)
 	
-	'-------------------------------------------------
-	' Turn off FastEdit after updates
-	'-------------------------------------------------
-	Set Table sTempInput FastEdit Off
-	Set Table sTempInput Undo On
+		'-------------------------------------------------
+		' Turn off FastEdit after updates
+		'-------------------------------------------------
+		Set Table sTempInput FastEdit Off
+		Set Table sTempInput Undo On
+
+	End If
 
 	Call MyPrint("Buffering features to " + iBufferSize + " metres ...")
-
-	'-------------------------------------------------
-	' Check if the records need to be clustered
-	'-------------------------------------------------
-	Dim bCluster As Logical, iClusterSize As Float
-	iClusterSize = iDissolveSize - 1
-	If iClusterSize > 0 Then
-		bCluster = True
-	End If
 
 	'-------------------------------------------------
 	' Loop through every column in the output table
@@ -1222,17 +1258,21 @@ Sub BufferRecords
 	bKeyFound = False
 	Dim iColumn As Integer
 	For iColumn = 1 to UBound(aOutColumns)
-		If UCase$(aOutColumns(iColumn).ColumnType) = "KEY" Then
+		If UCase$(aOutColumns(iColumn).ColumnType) = "KEY" Or
+		   UCase$(aOutColumns(iColumn).ColumnType) = "CLUSTER" Then
 			bKeyFound = True
 		End If
 	Next
 
 	'-------------------------------------------------
-	' If there is no key column then cluster the records
+	' If there is no key column then cluster the
+	' adjacent records
 	'-------------------------------------------------
-	If bCluster = False And bKeyFound = False Then
-		Call MyPrint("No key field found. Features will be clustered by proximity.")
-		bCluster = True
+	Dim iClusterSize As Float
+	iClusterSize = iDissolveSize - 1
+
+	If bCluster = True And bKeyFound = False Then
+		Call MyPrint("No key field found. Adjacent features will be clustered.")
 		iClusterSize = 0
 	End If
 
