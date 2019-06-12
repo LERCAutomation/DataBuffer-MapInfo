@@ -348,8 +348,6 @@ Global iInTable As Integer
 Global iInTableCnt As Integer
 Global iInTableTot As Integer
 
-Global bDefaultClearLogFile As Logical
-Global bDefaultCluster As Logical
 Global bClearLog As Logical
 Global bCluster As Logical
 

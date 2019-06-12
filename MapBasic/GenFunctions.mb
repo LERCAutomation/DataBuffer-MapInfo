@@ -414,7 +414,7 @@ Dim iPos, iEnd, iCount As Integer
 
         iCount = iCount + 1
         ReDim sPartsArray(iCount)
-        sPartsArray(iCount) = Mid$(sInput, iPos, iEnd - iPos)
+        sPartsArray(iCount) = LTrim$(RTrim$(Mid$(sInput, iPos, iEnd - iPos)))
     Loop
 
     SplitStringAtCharacter = UBound(sPartsArray)
