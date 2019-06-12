@@ -1569,32 +1569,18 @@ Sub BufferRecords
 								' If any of the column value elements are not already
 								' in the list then add them
 								'-------------------------------------------------
-		Call MyPrint("SplitList = " + sColumnVal)	
-'									If Instr(1, sColumnVal, sSplitChar) = 0 Then
-'										If Len(aColumnValues(iColumn).ValList) > 0 Then
-'											If Instr(1, aColumnValues(iColumn).ValList, Chr$(36) + sColumnVal + Chr$(36)) = 0 Then
-'												aColumnValues(iColumn).ValList = aColumnValues(iColumn).ValList + sSplitChar + " " + Chr$(36) + sColumnVal + Chr$(36)
-'											End If
-'										Else
-'											aColumnValues(iColumn).ValList = Chr$(36) + sColumnVal + Chr$(36)
-'										End If
-'									Else
-										iRC = SplitStringAtCharacter(sColumnVal, sSplitChar, sSplitArray)
-		Call MyPrint("Array size = " + iRC)
-										If iRC > 0 Then
-											For iItem = 1 To UBound(sSplitArray)
-		Call MyPrint("SplitList item = " + iItem + " = " + sSplitArray(iItem))
-												If Len(aColumnValues(iColumn).ValList) > 0 Then
-													If Instr(1, aColumnValues(iColumn).ValList, Chr$(36) + sSplitArray(iItem) + Chr$(36)) = 0 Then
-														aColumnValues(iColumn).ValList = aColumnValues(iColumn).ValList + sSplitChar + " " + Chr$(36) + sSplitArray(iItem) + Chr$(36)
-													End If
-												Else
-													aColumnValues(iColumn).ValList = Chr$(36) + sColumnVal + Chr$(36)
-												End If
-											Next
+								iRC = SplitStringAtCharacter(sColumnVal, sSplitChar, sSplitArray)
+								If iRC > 0 Then
+									For iItem = 1 To UBound(sSplitArray)
+										If Len(aColumnValues(iColumn).ValList) > 0 Then
+											If Instr(1, aColumnValues(iColumn).ValList, Chr$(36) + sSplitArray(iItem) + Chr$(36)) = 0 Then
+												aColumnValues(iColumn).ValList = aColumnValues(iColumn).ValList + sSplitChar + " " + Chr$(36) + sSplitArray(iItem) + Chr$(36)
+											End If
+										Else
+											aColumnValues(iColumn).ValList = Chr$(36) + sColumnVal + Chr$(36)
 										End If
-'									End If
-	Call MyPrint("SplitList value = " + aColumnValues(iColumn).ValList)
+									Next
+								End If
 							Case Else
 						End Case
 					End If
@@ -1759,12 +1745,9 @@ Sub BufferRecords
 					aColumnValues(iColumn).ValList = ""
 					If Len(sColumnVal) > 0 Then
 						If UCase$(aOutColumns(iColumn).ColumnType) = "SPLITLIST" Then
-	Call MyPrint("SplitList = " + sColumnVal)	
 							iRC = SplitStringAtCharacter(sColumnVal, sSplitChar, sSplitArray)
-	Call MyPrint("Array size = " + iRC)
 							If iRC > 0 Then
 								For iItem = 1 To UBound(sSplitArray)
-	Call MyPrint("SplitList item = " + iItem + " = " + sSplitArray(iItem))
 									If Len(aColumnValues(iColumn).ValList) > 0 Then
 										If Instr(1, aColumnValues(iColumn).ValList, Chr$(36) + sSplitArray(iItem) + Chr$(36)) = 0 Then
 											aColumnValues(iColumn).ValList = aColumnValues(iColumn).ValList + sSplitChar + " " + Chr$(36) + sSplitArray(iItem) + Chr$(36)
@@ -1774,7 +1757,6 @@ Sub BufferRecords
 									End If
 								Next
 							End If
-	Call MyPrint("SplitList value = " + aColumnValues(iColumn).ValList)
 						Else
 							aColumnValues(iColumn).ValList = Chr$(36) + sColumnVal + Chr$(36)
 						End If
