@@ -1,9 +1,9 @@
-Data Buffer
-===========
+DataBuffer
+==========
 
-Data Buffer Tool
+DataBuffer tool
 
-Copyright © 2016 TVERC
+Copyright © 2016-2019 TVERC, SBIC, GiGL
 
 Overview
 --------
@@ -11,18 +11,18 @@ DataBuffer is a MapBasic tool to buffer and, optionally, consolidate records fro
 
 Requirements
 ------------
-The Data Buffer Tool requires the following:
+The DataBuffer tool requires the following:
 
  - MapInfo 10.0 or higher
 
 Source Code
 -----------
-The source code for the Data Buffer Tool is open source and can be downloaded from:
+The source code for the DataBuffer tool is open source and can be downloaded from:
 <https://github.com/LERCAutomation/DataBuffer-MapInfo>
 
 License Information
 -------------------
-The Data Buffer Tool is free software. You can redistribute it and/or modify it
+The DataBuffer tool is free software. You can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the Free
 Software Foundation, either version 3 of the License, or (at your option) any
 later version.
@@ -31,3 +31,11 @@ See the file "License.txt" supplied with the source files for information on the
 terms & conditions for usage and copying, and a DISCLAIMER OF ALL WARRANTIES
 or see <http://www.gnu.org/licenses> for more details of the GNU General Public
 License.
+
+Funding
+-------
+The DataBuffer tool was developed with funding from:
+
+* Thames Valley Environmental Records Centre
+* Surrey Biodiversity Information Centre
+* Greenspace Information for Greater London CIC
