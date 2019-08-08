@@ -2,7 +2,7 @@
 '* records from one or more MapInfo GIS layers and merge the results
 '* into a single output MapInfo GIS layer.
 '*
-'* Copyright © 2016 - 2018 TVERC, SBIC
+'* Copyright © 2016 - 2019 TVERC, SBIC, GiGL
 '* 
 '* This file is part of the MapInfo tool 'DataBuffer'.
 '* 
@@ -20,7 +20,7 @@
 '* along with DataBuffer.  If not, see <http://www.gnu.org/licenses/>.
 '*
 '***************************************************************
-'* DataBuffer v1.0.14
+'* DataBuffer v1.0.15
 '*
 '* Buffers and (optionally) consolidates records from one or more
 '* MapInfo GIS layers and merges the results into a new output
@@ -28,7 +28,13 @@
 '*
 '*
 '* Created:         Andy Foy - February 2016
-'* Last revised:    Andy Foy - June 2019
+'* Last revised:    Andy Foy - July 2019
+'*
+'* *****************  Version 1.0.15  **************
+'* Author: Andy Foy		Date: 30/07/2019
+'* A. Enable loading XML profiles when running in 64bit.
+'* B. Create output and log file paths if missing.
+'* C. Add details of funding organisations to About box.
 '*
 '* *****************  Version 1.0.14  **************
 '* Author: Andy Foy		Date: 12/06/2019
@@ -110,7 +116,7 @@ Sub Main
 	'-------------------------------------------------
 	' Set the version number
 	'-------------------------------------------------
-	sVersion = "1.0.14"
+	sVersion = "1.0.15"
 
 	'-------------------------------------------------
 	' Get the title for the Tool menu
@@ -402,6 +408,26 @@ Sub GetDefaultValues(ByVal sXMLFile As String)
 
 	End If
 
+	'-------------------------------------------------
+	' Create the log file directory path if it doesn't
+	' already exist
+	'-------------------------------------------------
+	Dim iSuccess, iSecurity As Integer
+	iSecurity = 0
+
+	iSuccess = SetCurrentDirectory(sLogFilePath)
+	if iSuccess = 0 Then
+		'Call MyPrint("Creating log file path '" + sLogFilePath + "'")
+		'iSuccess = CreateDirectory(sLogFilePath , iSecurity)
+		iSuccess = SHCreateDirectoryEx(0, sLogFilePath, iSecurity)
+		if iSuccess <> 0 Then
+			Call MyPrint("Error creating log file path")
+			Call MyPrint("Process terminated.")
+			sXMLFile = ""
+			Goto CleanUp
+		End If
+	End If
+
 CleanUp:
 	'-------------------------------------------------
 	' Destroy the handles
@@ -418,7 +444,7 @@ CleanUp:
 
 GetVariablesError:
 	Note "Error: " + str$(Err()) + ": " + Error$()
-	Exit Sub
+	Goto Cleanup
 
 End Sub
 
@@ -527,24 +553,39 @@ Sub GetXMLProfile()
 	'-------------------------------------------------
     OnError Goto ErrorTrap
 
-	Dim sFileExclude As String
-	sFileExclude = "DataBuffer.xml"
-	
+	'-------------------------------------------------
+	' Get an array of all the XML profiles in the
+	' same file directory as the application
+	'-------------------------------------------------
 	Dim sDir As String
 	sDir = ApplicationDirectory$()
+	
+	Dim sFileExclude As String
+	sFileExclude = "DataBuffer.xml"
 	
 	Dim bResult As Logical
 	Dim sFileNames() as String
 	bResult = GetFileList(sDir, "*.xml" , sFileNames(), sFileExclude)
 	
+	'-------------------------------------------------
+	' Loop through all the XML profiles
+	'-------------------------------------------------
 	Dim i as integer
 	Dim sXMLFiles As String
 	sXMLFiles = ""
+	iDefaultXMLFile = 0
 	If bResult = True And UBound(sFileNames()) > 0 Then
 	
 		For i = 1 to UBound(sFileNames())
 		
+			'-------------------------------------------------
+			' Build a string of the XML profiles
+			'-------------------------------------------------
 			sXMLFiles = sXMLFiles + sFileNames(i) + ";"
+			
+			If UCase$(sFileNames(i)) = UCase$(sDefaultXMLFile) Then
+				iDefaultXMLFile = i
+			End If
 	
 		Next
 		
@@ -794,13 +835,17 @@ Sub CheckSelection
 	'-------------------------------------------------
 	Dim iSuccess, iSecurity As Integer
 	iSecurity = 0
+
 	iSuccess = SetCurrentDirectory(sOutputPath)
 	if iSuccess = 0 Then
-		Call MyPrint("Output folder does not exist - process cancelled.")
-		Note "Output folder does not exist - process cancelled."
-		Exit Sub
+		iSuccess = SHCreateDirectoryEx(0, sOutputPath, iSecurity)
+		if iSuccess <> 0 Then
+			Call MyPrint("Error creating output path - process cancelled.")
+			Note "Error creating output path - process cancelled."
+			Exit Sub
+		End If
 	End If
-
+	
 	'-------------------------------------------------
 	' Check the selected file name has the correct
 	' extension
@@ -2184,8 +2229,8 @@ Sub SetSymbology(sLocalName As String)
 
 		Else
 
-			Note "Error : " + MIGetErrorMessage()
-
+			Note "Error : " + MIGetErrorMessage() + " - updating symbology in " + sLocalName
+			Call MyPrint("Error: " + MIGetErrorMessage() + " - updating symbology")
 		End If
 
 	End If
@@ -2215,6 +2260,7 @@ CleanUp:
 
 GetSymbologyError:
 	Note str$(Err()) + ": " + Error$()
+	Call MyPrint("Error: " + str$(Err()) + " - " + Error$())
 	Exit Sub
 
 End Sub
@@ -2248,8 +2294,8 @@ Sub AboutBox
 
 	Dialog
 		Title "About Data Buffer " + sVersion
-		Width 230
-		Height 105
+		Width 210
+		Height 145
 
 	Control StaticText
 		Title "This program will buffer and, optionally, consolidate"
@@ -2266,8 +2312,20 @@ Sub AboutBox
 	Control StaticText
 		Title "Copyright© 2016 - 2019 TVERC, SBIC, GiGL."
 		Position 10,60
+	Control StaticText
+		Title "This tool was developed with funding from:"
+		Position 10,80
+	Control StaticText
+		Title "  - Thames Valley Environmental Records Centre"
+		Position 10,90
+	Control StaticText
+		Title "  - Surrey Biodiversity Information Centre"
+		Position 10,100
+	Control StaticText
+		Title "  - Greenspace Information for Greater London CIC"
+		Position 10,110
 	Control OKButton
-		Position 185,85
+		Position 165,125
 
 End Sub
 

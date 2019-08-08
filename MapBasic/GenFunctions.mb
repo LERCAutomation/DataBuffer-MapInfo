@@ -2,7 +2,7 @@
 '* records from one or more MapInfo GIS layers and merge the results
 '* into a single output MapInfo GIS layer.
 '*
-'* Copyright © 2016 TVERC
+'* Copyright © 2016 - 2019 TVERC, SBIC, GiGL
 '* 
 '* This file is part of the MapInfo tool 'DataBuffer'.
 '* 
@@ -449,9 +449,6 @@ Function GetFileList(ByVal sFilePath as String, ByVal sFileFilter as String, sFi
 '*************************************************
 OnError Goto CatchEx
 
-   Dim hFind As Integer
-   Dim wfd As WIN32_FIND_DATA
-   
    Dim sFileName as String
    Dim sSubDirFileList() As String
 
